@@ -80,9 +80,9 @@ function renderTurn() {
   const g = App.g, st = g.st, box = $('#dTurn');
   if (!st.multi) { box.innerHTML = ''; return; }
   const cm = st.done ? -1 : TE.currentManager(st);
-  const who = cm < 0 ? 'Draft complete' : localControl(g, cm) ? (g.online ? 'Your pick!' : `${esc(st.managers[cm].name)}'s pick`) : g.meta[cm] && g.meta[cm].cpu ? `${esc(st.managers[cm].name)} is thinking…` : `Waiting for ${esc(st.managers[cm].name)}…`;
+  const who = cm < 0 ? 'Draft complete' : localControl(g, cm) ? (g.online || st.managers[cm].name === 'You' || st.managers.filter((m, i) => localControl(g, i)).length === 1 ? 'Your pick!' : `${esc(st.managers[cm].name)}'s pick`) : g.meta[cm] && g.meta[cm].cpu ? `${esc(st.managers[cm].name)} is thinking…` : `Waiting for ${esc(st.managers[cm].name)}…`;
   box.innerHTML = `<div class="turn">${cm >= 0 ? `<span class="dot" style="background:${g.meta[cm].color}"></span>` : ''}<span>${who}</span>
-    <div class="tabs">${st.managers.map((m, i) => `<button data-view="${i}" class="${i === g.view ? 'on' : ''}" style="${i === g.view ? 'color:' + g.meta[i].color : ''}">${esc(m.name.slice(0, 7))}</button>`).join('')}</div></div>`;
+    <div class="tabs">${st.managers.map((m, i) => `<button data-view="${i}" class="${i === g.view ? 'on' : ''}" style="${i === g.view ? 'color:' + g.meta[i].color : ''}">${esc((m.name.length <= 9 ? m.name : m.name.replace(/^The /, '').split(' ').pop()).slice(0, 9))}</button>`).join('')}</div></div>`;
   $$('[data-view]', box).forEach((b) => b.addEventListener('click', () => { g.view = +b.dataset.view; g.viewLock = true; Sfx.tap(); renderDraftTop(); renderTurn(); renderField(); }));
 }
 function renderField() {
@@ -242,7 +242,7 @@ function maybeCpu() {
   g.cpuTimer = later(() => {
     g.cpuTimer = null;
     if (App.g !== g || st.done || TE.currentManager(st) !== cm) return;
-    const b = TE.botPick(st, cm, 5);
+    const b = TE.botPick(st, cm, g.cfg.cpuNoise === undefined ? 5 : g.cfg.cpuNoise);
     if (!b) return;
     TE.pick(st, cm, b.pid, b.slot);
     g.lastPlaced = { mi: cm, slot: b.slot };

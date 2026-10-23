@@ -1,5 +1,5 @@
 'use strict';
-// Season playback, Clutch Calls and season results. Shared by Season, Daily, Dynasty, Party and Online.
+// Season playback, Clutch Calls and season results. Shared by Season, Daily, Party and Online; liveCard + playLiveMatch also power the arena modes.
 //   playSeason(ctx) with ctx = { users:[{name, xi, mods}], seed, interactive:[bool], meta:[{color}], title, choices?, onFinish(out) }
 const rec = (r) => `${r.w}-${r.l}`;
 const stageShort = (r) => (r.champion ? 'Won the Super Bowl' : r.stage === 4 ? 'Lost the Super Bowl' : r.stage === 3 ? 'Lost in Conf. Champ.' : r.stage === 2 ? 'Lost in Divisional' : r.stage === 1 ? 'Lost in Wild Card' : 'Missed playoffs');
@@ -126,71 +126,10 @@ function SeasonScreen(ctx) {
   if (sp) sp.onclick = () => { S.speed = S.speed === 1 ? 2 : S.speed === 2 ? 4 : 1; drawSpd(); Sfx.tap(); };
   const meXI = ctx.users[0].xi;
   const liveGame = (e, done) => {
-    const box = $('#live', el);
-    if (!box) { done(); return; }
     const oppSq = e.oppKey && e.oppKey[0] === 'S' ? parseInt(e.oppKey.slice(1), 10) : null;
-    const oppTeam = oppSq !== null ? TE.squadTeam(oppSq) : null;
-    const oc = oppTeam ? teamColors(oppTeam) : { c1: '#0f1631', c2: '#ffc531' };
-    const stopAt = e.stopAt || null;
-    const plays = e.plays || [];
-    const lastT = plays.length ? plays[plays.length - 1].t : 0;
-    const endT = stopAt || (e.ot ? Math.max(3660, lastT + 60) : 3600);
-    const big = e.comp === 'P' || e.prime || stopAt;
-    const dur = (e.comp === 'P' ? 7000 : big ? 5200 : 3400) / S.speed;
-    const badge = stopAt ? 'Primetime' : e.comp === 'P' ? (e.label === 'Conference Championship' ? 'Conf. Championship' : e.label) : e.prime ? 'Week ' + e.week + ' · Primetime' : 'Week ' + e.week;
-    box.className = 'live on' + (e.comp === 'P' ? ' po' : '') + (big ? ' big' : '');
-    box.innerHTML = `<div class="lv-top"><span class="lv-badge">${esc(stopAt ? e.label : badge)}</span><span class="lv-clock" id="lvClk">Q1 15:00</span></div>
-      <div class="lv-teams"><div class="lv-tm"><div class="lv-h">${myTeamHelm()}</div><b>You</b></div><div class="lv-score"><span id="lvA">0</span><i>–</i><span id="lvB">0</span></div><div class="lv-tm"><div class="lv-h">${helmet(oc.c1, oc.c2, true)}</div><b>${esc(e.opp)}</b></div></div>
-      <div class="lv-bar"><i id="lvP"></i></div><div class="lv-feed" id="lvF"><div class="lv-pl mute">Kickoff</div></div>`;
-    const R = TE.rng(ctx.seed + ':pbp:' + (e.week || 0) + ':' + plays.length);
-    const name = (xi, pos, k) => { const ids = TE.LINEUP.map((s, i) => (s.pos === pos && xi && xi[i] !== null ? xi[i] : null)).filter((v) => v !== null); const pid = ids[(k || 0) % Math.max(1, ids.length)]; return pid === undefined || pid === null ? null : shortName(TE.PLAYERS[pid].name); };
-    const text = (p) => {
-      const xi = p.s === 0 ? meXI : oppTeam && oppTeam.xi;
-      const yd = 3 + Math.floor(R() * 42), fg = 24 + Math.floor(R() * 30), u = R();
-      const qb = name(xi, 'QB'), rb = name(xi, 'RB'), wr = name(xi, 'WR', Math.floor(R() * 2)), te = name(xi, 'TE'), k = name(xi, 'K');
-      if (p.pts === 3) return `${k || 'The kicker'} drills a ${fg}-yd field goal`;
-      if (p.pts !== 7 && p.pts !== 6) return 'Score';
-      if (u < 0.45 && qb && wr) return `${qb} finds ${wr} for a ${yd}-yd TD`;
-      if (u < 0.65 && qb && te) return `${qb} hits ${te}, ${Math.min(yd, 25)}-yd TD`;
-      if (u < 0.9 && rb) return `${rb} punches it in from ${Math.max(1, Math.round(yd / 6))}`;
-      return `Pick-six! ${p.s === 0 ? 'Your' : 'Their'} defense takes it back`;
-    };
-    const clock = (t) => { if (t >= 3600) return 'OT'; const q = Math.floor(t / 900) + 1, rem = 900 - (t % 900); return `Q${q} ${Math.floor(rem / 60)}:${String(rem % 60).padStart(2, '0')}`; };
-    let a = 0, b = 0, k = 0;
-    const t0 = performance.now();
-    const feed = $('#lvF', box);
-    const tickLive = () => {
-      if (!el.isConnected || skipping) return;
-      const f = Math.min(1, (performance.now() - t0) / (dur * (endT / 3600)));
-      const t = Math.round(f * endT);
-      while (k < plays.length && plays[k].t <= t && (!stopAt || plays[k].t < stopAt)) {
-        const p = plays[k++];
-        if (p.s === 0) a += p.pts; else b += p.pts;
-        const sEl = $(p.s === 0 ? '#lvA' : '#lvB', box);
-        sEl.textContent = p.s === 0 ? a : b; sEl.classList.remove('bump'); void sEl.offsetWidth; sEl.classList.add('bump');
-        const row = document.createElement('div');
-        row.className = 'lv-pl ' + (p.s === 0 ? 'us' : 'them');
-        row.innerHTML = `<span class="lv-t">${clock(p.t).replace(' ', '&nbsp;')}</span><span class="lv-k">${p.pts === 3 ? 'FG' : 'TD'}</span><span class="grow">${esc(text(p))}</span>`;
-        feed.insertBefore(row, feed.firstChild);
-        while (feed.children.length > 3) feed.lastChild.remove();
-        if (p.s === 0) { Sfx.good(); buzz(15); } else Sfx.bad();
-      }
-      $('#lvClk', box).textContent = f >= 1 ? (stopAt ? '2:00 · Q4' : e.ot ? 'FINAL/OT' : 'FINAL') : clock(t);
-      $('#lvP', box).style.width = f * 100 + '%';
-      if (f < 1) { later(tickLive, 40); return; }
-      if (stopAt) {
-        box.classList.add('clutch');
-        $('#lvClk', box).innerHTML = `${ico('timer', 14)} Clutch call`;
-        Sfx.heartbeat(); buzz([60, 80, 60]);
-        later(done, 1200);
-        return;
-      }
-      const win = a > b;
-      box.classList.add(win ? 'won' : 'lost');
-      $('#lvClk', box).innerHTML = `${e.ot ? 'FINAL/OT' : 'FINAL'} <b class="${win ? 'W' : 'L'}">${win ? 'W' : 'L'}</b>`;
-      done();
-    };
-    later(tickLive, 250 / S.speed);
+    const badge = e.stopAt ? e.label : e.comp === 'P' ? (e.label === 'Conference Championship' ? 'Conf. Championship' : e.label) : e.prime ? 'Week ' + e.week + ' · Primetime' : 'Week ' + e.week;
+    liveCard($('#live', el), { opp: e.opp, oppXI: oppSq !== null ? TE.squadTeam(oppSq).xi : null, badge, po: e.comp === 'P', big: e.comp === 'P' || e.prime || e.stopAt, plays: e.plays, ot: e.ot, stopAt: e.stopAt, key: e.week || 0 },
+      { myXI: meXI, seed: ctx.seed, speed: S.speed, alive: () => el.isConnected && !skipping }, done);
   };
   $('#skip', el).onclick = () => { skipping = true; finish(); };
   if (!S.shown) Sfx.whistle();
@@ -377,3 +316,120 @@ async function shareImage(r, xi, label) {
 }
 function rr(x, X, Y, w, h, r) { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + w, Y, X + w, Y + h, r); x.arcTo(X + w, Y + h, X, Y + h, r); x.arcTo(X, Y + h, X, Y, r); x.arcTo(X, Y, X + w, Y, r); x.closePath(); }
 function fitText(x, t, w) { while (t.length > 3 && x.measureText(t).width > w) t = t.slice(0, -2) + '…'; return t; }
+
+// ================= LIVE GAME CARD =================
+// Plays a finished (or paused-at-2:00) game back on a running clock.
+// e: {opp, oppXI, badge, po, big, plays:[{t,s,pts}], ot, stopAt, key}; o: {myXI, myName, seed, speed, alive(), instant}
+function liveCard(box, e, o, done) {
+  if (!box) { done(); return; }
+  const oppXI = e.oppXI || null;
+  const oc = oppXI ? teamColors({ xi: oppXI }) : { c1: '#0f1631', c2: '#ffc531' };
+  const stopAt = e.stopAt || null;
+  const plays = e.plays || [];
+  const lastT = plays.length ? plays[plays.length - 1].t : 0;
+  const endT = stopAt || (e.ot ? Math.max(3660, lastT + 60) : 3600);
+  const dur = o.instant ? 0 : (e.po ? 7000 : e.big ? 5200 : 3400) / (o.speed || 1);
+  const alive = o.alive || (() => box.isConnected);
+  box.className = 'live on' + (box.id === 'lm' ? ' solo' : '') + (e.po ? ' po' : '') + (e.big ? ' big' : '');
+  box.innerHTML = `<div class="lv-top"><span class="lv-badge">${esc(e.badge || '')}</span><span class="lv-clock" data-k="clk">Q1 15:00</span></div>
+    <div class="lv-teams"><div class="lv-tm"><div class="lv-h">${myTeamHelm()}</div><b>${esc(o.myName || 'You')}</b></div><div class="lv-score"><span data-k="a">0</span><i>–</i><span data-k="b">0</span></div><div class="lv-tm"><div class="lv-h">${helmet(oc.c1, oc.c2, true)}</div><b>${esc(e.opp)}</b></div></div>
+    <div class="lv-bar"><i data-k="p"></i></div><div class="lv-feed" data-k="f"><div class="lv-pl mute">Kickoff</div></div>`;
+  const q = (k) => box.querySelector(`[data-k="${k}"]`);
+  const R = TE.rng(o.seed + ':pbp:' + (e.key || 0) + ':' + plays.length);
+  const name = (xi, pos, k) => { const ids = TE.LINEUP.map((sl, i) => (sl.pos === pos && xi && xi[i] !== null ? xi[i] : null)).filter((v) => v !== null); const pid = ids[(k || 0) % Math.max(1, ids.length)]; return pid === undefined || pid === null ? null : shortName(TE.PLAYERS[pid].name); };
+  const text = (p) => {
+    const xi = p.s === 0 ? o.myXI : oppXI;
+    const yd = 3 + Math.floor(R() * 42), fg = 24 + Math.floor(R() * 30), u = R();
+    const qb = name(xi, 'QB'), rb = name(xi, 'RB'), wr = name(xi, 'WR', Math.floor(R() * 2)), te = name(xi, 'TE'), k = name(xi, 'K');
+    if (p.pts === 3) return `${k || 'The kicker'} drills a ${fg}-yd field goal`;
+    if (p.pts !== 7 && p.pts !== 6) return 'Score';
+    if (u < 0.45 && qb && wr) return `${qb} finds ${wr} for a ${yd}-yd TD`;
+    if (u < 0.65 && qb && te) return `${qb} hits ${te}, ${Math.min(yd, 25)}-yd TD`;
+    if (u < 0.9 && rb) return `${rb} punches it in from ${Math.max(1, Math.round(yd / 6))}`;
+    return `Pick-six! ${p.s === 0 ? 'Your' : 'Their'} defense takes it back`;
+  };
+  const clock = (t) => { if (t >= 3600) return 'OT'; const qq = Math.floor(t / 900) + 1, rem = 900 - (t % 900); return `Q${qq} ${Math.floor(rem / 60)}:${String(rem % 60).padStart(2, '0')}`; };
+  let a = 0, b = 0, k = 0;
+  const t0 = performance.now();
+  const feed = q('f');
+  const tickLive = () => {
+    if (!alive()) return;
+    const f = dur ? Math.min(1, (performance.now() - t0) / (dur * (endT / 3600))) : 1;
+    const t = Math.round(f * endT);
+    while (k < plays.length && plays[k].t <= t && (!stopAt || plays[k].t < stopAt)) {
+      const p = plays[k++];
+      if (p.s === 0) a += p.pts; else b += p.pts;
+      const sEl = q(p.s === 0 ? 'a' : 'b');
+      sEl.textContent = p.s === 0 ? a : b;
+      const row = document.createElement('div');
+      row.className = 'lv-pl ' + (p.s === 0 ? 'us' : 'them');
+      row.innerHTML = `<span class="lv-t">${clock(p.t).replace(' ', '&nbsp;')}</span><span class="lv-k">${p.pts === 3 ? 'FG' : 'TD'}</span><span class="grow">${esc(text(p))}</span>`;
+      feed.insertBefore(row, feed.firstChild);
+      while (feed.children.length > 3) feed.lastChild.remove();
+      if (!o.instant) { sEl.classList.remove('bump'); void sEl.offsetWidth; sEl.classList.add('bump'); if (p.s === 0) { Sfx.good(); buzz(15); } else Sfx.bad(); }
+    }
+    q('clk').textContent = f >= 1 ? (stopAt ? '2:00 · Q4' : e.ot ? 'FINAL/OT' : 'FINAL') : clock(t);
+    q('p').style.width = f * 100 + '%';
+    if (f < 1) { later(tickLive, 40); return; }
+    if (stopAt) {
+      box.classList.add('clutch');
+      q('clk').innerHTML = `${ico('timer', 14)} Clutch call`;
+      Sfx.heartbeat(); buzz([60, 80, 60]);
+      later(done, 1200);
+      return;
+    }
+    const win = a > b;
+    box.classList.add(win ? 'won' : 'lost');
+    q('clk').innerHTML = `${e.ot ? 'FINAL/OT' : 'FINAL'} <b class="${win ? 'W' : 'L'}">${win ? 'W' : 'L'}</b>`;
+    done({ win, us: a, them: b });
+  };
+  if (o.instant) tickLive(); else later(tickLive, 250 / (o.speed || 1));
+}
+
+// One live game against a single opponent, with a Clutch Call if it's close at 2:00.
+// m: {title, badge, user:{name, xi, mods}, opp:{name, xi, prof}, seed, po, onDone(result, el)}
+function playLiveMatch(m, choices) {
+  choices = choices || [];
+  const run = (ch, opts) => TE.singleGame(m.user, m.opp, m.seed, Object.assign({ choices: ch, label: m.badge }, opts || {}));
+  const out = run(choices, { interactive: true });
+  const screen = (instant) => {
+    const el = go(`<div class="topbar"><h2 class="d grow">${esc(m.title)}</h2>${instant ? '' : `<button class="btn small" id="lmSkip">Skip ▸▸</button>`}</div>
+      <div class="live solo" id="lm"></div><div id="after"></div>${tape()}`);
+    return el;
+  };
+  const finalOf = (res) => ({ plays: res.plays, ot: res.ot });
+  // tale of the tape under the scoreboard
+  const tape = () => {
+    const me = TE.teamProfile(m.user.xi, { mods: m.user.mods }), op = m.opp.prof;
+    const row = (lbl, a, b) => { const pa = Math.max(8, Math.min(92, 50 + (a - b) * 4)); return `<div class="tp-row"><b>${Math.round(a)}</b><div class="tp-bar"><i style="width:${pa}%"></i></div><b>${Math.round(b)}</b><small>${lbl}</small></div>`; };
+    return `<div class="tape"><div class="tp-head"><span>You</span><small>Tale of the tape</small><span>${esc(m.opp.name)}</span></div>
+      ${row('Overall', me.ovr, op.ovr)}${row('Offense', me.off, op.off)}${row('Defense', me.def, op.def)}</div>
+      <div class="tp-xi"><div class="section-title">Your lineup</div>${miniField(m.user.xi, m.user.mods)}</div>`;
+  };
+  if (out.pending) {
+    const el = screen(false);
+    let skipped = false;
+    const toCall = () => {
+      let chosen = null;
+      showClutch(out.pending, m.user.name, (choice) => {
+        chosen = choice;
+        const r = run(choices.concat([choice])).result;
+        return { win: r.win, text: r.clutch ? r.clutch.result : '', pf: r.us, pa: r.them, ot: r.ot };
+      }, () => {
+        const r = run(choices.concat([chosen])).result;
+        const el2 = screen(true);
+        liveCard($('#lm', el2), Object.assign({ opp: m.opp.name, oppXI: m.opp.xi, badge: m.badge, po: m.po, big: true }, finalOf(r)), { myXI: m.user.xi, myName: m.user.name, seed: m.seed, instant: true }, () => m.onDone(r, el2));
+      });
+    };
+    $('#lmSkip', el).onclick = () => { skipped = true; toCall(); };
+    liveCard($('#lm', el), { opp: m.opp.name, oppXI: m.opp.xi, badge: m.badge, po: m.po, big: true, plays: out.pending.events, stopAt: 3480 },
+      { myXI: m.user.xi, myName: m.user.name, seed: m.seed, alive: () => el.isConnected && !skipped }, toCall);
+    return;
+  }
+  const r = out.result;
+  const el = screen(false);
+  let skipped = false;
+  const fin = () => { const b = $('#lmSkip', el); if (b) b.remove(); m.onDone(r, el); };
+  $('#lmSkip', el).onclick = () => { skipped = true; liveCard($('#lm', el), Object.assign({ opp: m.opp.name, oppXI: m.opp.xi, badge: m.badge, po: m.po, big: true }, finalOf(r)), { myXI: m.user.xi, myName: m.user.name, seed: m.seed, instant: true }, fin); };
+  liveCard($('#lm', el), Object.assign({ opp: m.opp.name, oppXI: m.opp.xi, badge: m.badge, po: m.po, big: true }, finalOf(r)), { myXI: m.user.xi, myName: m.user.name, seed: m.seed, alive: () => el.isConnected && !skipped }, fin);
+}

@@ -561,7 +561,7 @@
     } };
     const res = playGame(rng(seed), me, opp, 1, hooks);
     if (res.pending) { pend.label = opts.label || 'Gauntlet'; pend.home = true; return { pending: pend, choices }; }
-    return { result: { us: res.a, them: res.b, q: res.q, ot: res.ot, clutch: res.clutch || null, win: res.a > res.b }, choices };
+    return { result: { us: res.a, them: res.b, q: res.q, plays: res.ev || [], ot: res.ot, clutch: res.clutch || null, win: res.a > res.b }, choices };
   }
 
   // the best player at every spot, ever (no duplicates)

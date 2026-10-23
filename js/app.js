@@ -19,15 +19,16 @@ const later = (fn, ms) => {
 const myName = () => (Store.data.name || '').trim() || 'You';
 
 // five bottom tabs; every screen inside a tab returns to it via data-act="home"
-const TABS = [['play', 'home', 'Play'], ['daily', 'calendar', 'Daily'], ['club', 'shield', 'Club'], ['trophies', 'trophy', 'Trophies'], ['me', 'user', 'Me']];
+const TABS = [['play', 'ball', 'Season'], ['games', 'grid', 'Games'], ['club', 'shield', 'Club'], ['trophies', 'trophy', 'Trophies'], ['me', 'user', 'Me']];
+const triviaLeft = () => [!!(puzzle('grid') && puzzle('grid').done), !!(puzzle('who') && puzzle('who').done), !!puzzle('drill')].filter((x) => !x).length;
 const dailyLeft = () => [!!Store.data.daily[todayKey()], !!(puzzle('grid') && puzzle('grid').done), !!(puzzle('who') && puzzle('who').done), !!puzzle('drill')].filter((x) => !x).length;
 function goTab(id) {
   App.tab = id;
-  ({ play: Home, daily: DailyTab, club: () => (App.clubSeg === 'packs' ? Packs : App.clubSeg === 'binder' ? Cards : ClubScreen)(), trophies: Trophies, me: Profile })[id]();
+  ({ play: Home, games: GamesTab, daily: GamesTab, club: () => (App.clubSeg === 'packs' ? Packs : App.clubSeg === 'binder' ? Cards : ClubScreen)(), trophies: Trophies, me: Profile })[id]();
 }
 function tabbar(active) {
   App.tab = active;
-  const dot = { daily: dailyLeft() > 0, club: freePackReady() || claimable() > 0 };
+  const dot = { play: !Store.data.daily[todayKey()], games: triviaLeft() > 0, club: freePackReady() || claimable() > 0 };
   const bar = document.createElement('nav');
   bar.className = 'tabbar';
   bar.innerHTML = TABS.map(([id, ic, lbl]) => `<button class="${id === active ? 'on' : ''}" data-tab="${id}">${ico(ic, 22)}<span>${lbl}</span>${dot[id] ? '<i class="badge-dot"></i>' : ''}</button>`).join('');
@@ -56,7 +57,7 @@ const greet = () => { const h = new Date().getHours(); return h < 5 ? 'Late nigh
 function Home() {
   if (typeof Net !== 'undefined' && Net.peer) Net.leave();
   App.g = null;
-  const d = Store.data, s = d.stats, dyn = d.dynasty, left = dailyLeft();
+  const d = Store.data, s = d.stats;
   const el = go(`
     <div class="home-head">${levelChip()}<span class="grow"></span>${coinsChip()}</div>
     <div class="hello"><small>${greet()}${myName() !== 'You' ? ', ' + esc(myName()) : ''}</small><h1>Ready to go <span>perfect</span>?</h1></div>
@@ -65,19 +66,20 @@ function Home() {
 
     <button class="feature" data-act="season"><div class="ft-glow"></div><span class="tag">${ico('star', 14)} Main event · 2026</span><h3>Season</h3><p>Spin a team, draft 12 from its 2026 roster, chase 17-0 and the ring.</p><span class="go">Play ${ico('chevron', 16)}</span><div class="art">${helmet('#ffffff', '#ffc531')}</div></button>
 
-    ${left ? `<button class="promo sun" data-act="dailytab"><div class="pr-ic">${ico('calendar', 22)}</div><div class="grow"><b>${left} daily game${left > 1 ? 's' : ''} left today</b><small>${dailyStreak() ? `Keep your ${dailyStreak()}-day streak alive` : 'Start a streak today'}</small></div>${ico('chevron', 18)}</button>` : ''}
 
-    <div class="sec-row"><h3>Game modes</h3></div>
-    <div class="bento">
-      <button class="mode-card big" data-act="gameday"><div class="mc-ic mint">${ico('clipboard', 24)}</div><b>Gameday</b><small>Call every play of a full game</small><span class="mc-tag">${s.gdWins}-${s.gdPlayed - s.gdWins}</span></button>
-      <button class="mode-card" data-act="gauntlet"><div class="mc-ic pink">${ico('ladder', 22)}</div><b>Gauntlet</b><small>10 games, 2 lives</small><span class="mc-tag">${s.gauntletBest}/10</span></button>
-      <button class="mode-card" data-act="dynasty"><div class="mc-ic violet">${ico('pillar', 22)}</div><b>Dynasty</b><small>${dyn ? 'Year ' + dyn.year + ' of 5' : '5-year run'}</small>${dyn ? '<span class="mc-tag hot">Resume</span>' : ''}</button>
-      <button class="mode-card wide" data-act="friends"><div class="mc-ic ink">${ico('users', 22)}</div><div class="grow"><b>Play with friends</b><small>Online rooms or pass &amp; play</small></div>${ico('chevron', 18)}</button>
+    <div class="sec-row"><h3>Your seasons</h3></div>
+    <div class="stat-grid">
+      <div class="stat"><div class="si blue">${ico('ball', 18)}</div><b>${s.played}</b><small>Played</small></div>
+      <div class="stat"><div class="si sun">${ico('trophy', 18)}</div><b>${s.champs}</b><small>Rings</small></div>
+      <div class="stat"><div class="si pink">${ico('timer', 18)}</div><b>${s.clutchW}/${s.clutchT}</b><small>Clutch</small></div>
     </div>
-    <div class="sec-row"><h3>Arcade</h3></div>
+    ${s.best ? `<div class="hero-card row" style="margin-top:10px"><div class="intro-ic sm">${ico('star', 20)}</div><div class="grow"><b>Best season</b><div class="mute" style="font-weight:700;font-size:13px">${esc(s.best.title)} · ${esc(s.best.rec)}</div></div></div>` : ''}
+
+    <div class="sec-row"><h3>More ways to play a season</h3></div>
     <div class="bento">
-      <button class="mode-card" data-act="kick"><div class="mc-ic orange">${ico('goalpost', 22)}</div><b>Kick It</b><small>Arcade field goals</small><span class="mc-tag">Best ${s.kickBest}</span></button>
-      <button class="mode-card" data-act="hl"><div class="mc-ic blue">${ico('scale', 22)}</div><b>Who's Better?</b><small>Higher or lower</small><span class="mc-tag">Best ${s.hlBest}</span></button>
+      <button class="mode-card" data-act="daily"><div class="mc-ic sun">${ico('calendar', 22)}</div><b>Daily Draft</b><small>${d.daily[todayKey()] ? esc(d.daily[todayKey()].title) : 'Same spins worldwide'}</small>${d.daily[todayKey()] ? `<span class="mc-tag">${ico('check', 12)}</span>` : '<span class="mc-tag hot">New</span>'}</button>
+      <button class="mode-card" data-act="friends"><div class="mc-ic ink">${ico('users', 22)}</div><b>With friends</b><small>Online rooms or pass &amp; play</small></button>
+    </div>
     </div>`, 'has-tabs');
   tabbar('play');
   const nx = $('#nwx', el);
@@ -86,24 +88,34 @@ function Home() {
   return el;
 }
 
-// ================= DAILY TAB =================
-function DailyTab() {
+// ================= GAMES TAB =================
+function GamesTab() {
   App.g = null;
-  const d = Store.data, key = todayKey(), streak = dailyStreak();
+  const s = Store.data.stats, streak = dailyStreak();
   const g = puzzle('grid'), w = puzzle('who'), dr = puzzle('drill');
-  const games = [
-    { act: 'daily', icon: 'calendar', col: 'sun', title: 'Daily Draft', blurb: 'Same spins for everyone. One shot at a season.', done: !!d.daily[key], res: d.daily[key] ? d.daily[key].title + ' · ' + d.daily[key].rec : '' },
+  const trivia = [
     { act: 'grid', icon: 'grid', col: 'blue', title: 'The Grid', blurb: 'Name a player who fits the row and the column.', done: !!(g && g.done), res: g ? g.cells.filter(Boolean).length + '/9 solved' : '' },
     { act: 'who', icon: 'question', col: 'pink', title: "Who's That?", blurb: 'Guess the mystery player from the clues.', done: !!(w && w.done), res: w && w.done ? (w.win ? 'Solved in ' + w.guesses.length : 'Missed it') : '' },
     { act: 'drill', icon: 'timer', col: 'violet', title: '2-Minute Drill', blurb: 'Down late, ball in your hands. Win it.', done: !!dr, res: dr ? dr.title : '' },
   ];
-  const n = games.filter((x) => x.done).length;
+  const n = trivia.filter((x) => x.done).length;
   go(`
-    <div class="topbar"><h2 class="d grow">Daily</h2><span class="pill">${ico('flame', 14)} <b>${streak}</b> day${streak === 1 ? '' : 's'}</span></div>
-    <div class="daily-hero"><div class="grow"><small>Daily #${dailyNumber(key)}</small><b>${n === 4 ? 'All done. See you tomorrow!' : `${4 - n} to go today`}</b><span>New puzzles every midnight</span></div><div class="ring big" style="--p:${(n / 4) * 100}%"><b>${n}/4</b></div></div>
-    <div class="dl-list">${games.map((x) => `<button class="dl-card ${x.done ? 'done' : ''}" data-act="${x.act}"><div class="tc-ic ${x.col}">${ico(x.icon, 24)}</div><div class="grow"><b>${x.title}</b><small>${esc(x.res || x.blurb)}</small></div>${x.done ? `<span class="dl-ok">${ico('check', 16)}</span>` : '<span class="dl-go">Play</span>'}</button>`).join('')}</div>
-    ${freePackReady() ? `<button class="promo" data-act="packs"><div class="pr-ic">${ico('gift', 22)}</div><div class="grow"><b>Free daily pack</b><small>3 cards, on the house</small></div>${ico('chevron', 18)}</button>` : ''}`, 'has-tabs');
-  tabbar('daily');
+    <div class="topbar"><h2 class="d grow">Games</h2>${coinsChip()}</div>
+    <div class="daily-hero"><div class="grow"><small>Daily #${dailyNumber(todayKey())} · ${ico('flame', 12)} ${streak} day streak</small><b>${n === 3 ? 'All done. See you tomorrow!' : `${3 - n} daily puzzle${3 - n > 1 ? 's' : ''} left`}</b><span>New puzzles every midnight</span></div><div class="ring big" style="--p:${(n / 3) * 100}%"><b>${n}/3</b></div></div>
+    <div class="dl-list">${trivia.map((x) => `<button class="dl-card ${x.done ? 'done' : ''}" data-act="${x.act}"><div class="tc-ic ${x.col}">${ico(x.icon, 24)}</div><div class="grow"><b>${x.title}</b><small>${esc(x.res || x.blurb)}</small></div>${x.done ? `<span class="dl-ok">${ico('check', 16)}</span>` : '<span class="dl-go">Play</span>'}</button>`).join('')}</div>
+
+    <div class="sec-row"><h3>Head to head</h3></div>
+    <div class="bento">
+      <button class="mode-card big duel" data-act="duel"><div class="mc-ic violet">${ico('users', 24)}</div><b>Draft Duel</b><small>Steal-draft vs a rival GM, then a best-of-3, live</small><span class="mc-tag">${s.duelW || 0} won</span></button>
+      <button class="mode-card" data-act="cap"><div class="mc-ic sun">${ico('coin', 22)}</div><b>Salary Cap</b><small>$${CAP}M to build a champ</small><span class="mc-tag">${s.capBest || 0}/4</span></button>
+      <button class="mode-card" data-act="gameday"><div class="mc-ic mint">${ico('clipboard', 22)}</div><b>Gameday</b><small>Call every play</small><span class="mc-tag">${s.gdWins}-${s.gdPlayed - s.gdWins}</span></button>
+    </div>
+    <div class="sec-row"><h3>Arcade</h3></div>
+    <div class="bento">
+      <button class="mode-card" data-act="kick"><div class="mc-ic orange">${ico('goalpost', 22)}</div><b>Kick It</b><small>Arcade field goals</small><span class="mc-tag">Best ${s.kickBest}</span></button>
+      <button class="mode-card" data-act="hl"><div class="mc-ic blue">${ico('scale', 22)}</div><b>Who's Better?</b><small>Higher or lower</small><span class="mc-tag">Best ${s.hlBest}</span></button>
+    </div>`, 'has-tabs');
+  tabbar('games');
 }
 
 function Help() {
@@ -112,7 +124,7 @@ function Help() {
       <div class="step"><div class="n blue">${ico('refresh', 18)}</div><div><h4>Spin the wheel</h4><p>It lands on an NFL team, and you draft from its <b>2026 roster</b>. Legends from past decades live in card packs.</p></div></div>
       <div class="step"><div class="n orange">${ico('cards', 18)}</div><div><h4>Draft 12</h4><p>QB, RB, 2 WR, TE, OL, DL, LB, CB, S, K and Head Coach. Teammates from the same franchise build chemistry.</p></div></div>
       <div class="step"><div class="n pink">${ico('timer', 18)}</div><div><h4>Make the call</h4><p>Close games stop at 2:00 for a Clutch Call. In Gameday you call every play.</p></div></div>
-      <div class="step"><div class="n mint">${ico('calendar', 18)}</div><div><h4>Come back daily</h4><p>Four daily games in the Daily tab, a free pack, and a streak to protect.</p></div></div>
+      <div class="step"><div class="n mint">${ico('calendar', 18)}</div><div><h4>Come back daily</h4><p>A Daily Draft on the Season tab, three daily puzzles in Games, a free pack, and a streak to protect.</p></div></div>
     </div>
     <button class="btn primary" data-close style="margin-top:14px">Let's go</button>`, null, 'sheet');
 }
@@ -321,7 +333,8 @@ function Trophies() {
       <div class="stat"><div class="si violet">${ico('crown', 18)}</div><b>${s.perfect}</b><small>Perfect</small></div>
       <div class="stat"><div class="si pink">${ico('timer', 18)}</div><b>${s.clutchW}</b><small>Clutch wins</small></div>
       <div class="stat"><div class="si mint">${ico('clipboard', 18)}</div><b>${s.gdWins}-${s.gdPlayed - s.gdWins}</b><small>Gameday</small></div>
-      <div class="stat"><div class="si pink">${ico('ladder', 18)}</div><b>${s.gauntletBest}/10</b><small>Gauntlet</small></div>
+      <div class="stat"><div class="si pink">${ico('users', 18)}</div><b>${s.duelW || 0}</b><small>Duels won</small></div>
+      <div class="stat"><div class="si sun">${ico('coin', 18)}</div><b>${s.capBest || 0}/4</b><small>Cap run</small></div>
       <div class="stat"><div class="si orange">${ico('goalpost', 18)}</div><b>${s.kickBest}</b><small>Kick It</small></div>
     </div>
     <div class="section-title">Achievements</div>
@@ -364,8 +377,8 @@ function Profile() {
 
 // ================= BOOT =================
 const ACTIONS = {
-  home: () => goTab(App.tab || 'play'), dailytab: () => goTab('daily'), binder: Cards, help: Help, quit: () => quitDraft(), season: () => SeasonSetup('quick'), daily: openDaily, gameday: GamedayStart,
-  gauntlet: GauntletStart, dynasty: DynastyStart, hl: WhosBetter, friends: FriendsMenu, party: PartySetup, online: () => OnlineScreen(),
+  home: () => goTab(App.tab || 'play'), dailytab: () => goTab('games'), duel: DuelStart, cap: CapStart, binder: Cards, help: Help, quit: () => quitDraft(), season: () => SeasonSetup('quick'), daily: openDaily, gameday: GamedayStart,
+  hl: WhosBetter, friends: FriendsMenu, party: PartySetup, online: () => OnlineScreen(),
   club: () => ClubScreen(), grid: () => GridGame(), who: () => MysteryGame(), drill: () => DrillStart(), kick: KickIt, packs: Packs,
 };
 document.addEventListener('click', (e) => {

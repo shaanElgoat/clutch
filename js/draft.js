@@ -25,7 +25,7 @@ function fieldSlots(xi, opts) {
 const miniField = (xi, mods) => `<div class="turf mini-turf">${FIELD_LINES}${fieldSlots(xi, { mods })}</div>`;
 
 function openDraft(cfg) {
-  const st = TE.createDraft({ seed: cfg.seed, blind: cfg.blind, managers: cfg.managers, respins: cfg.respins, replace: cfg.replace, rounds: cfg.rounds });
+  const st = cfg.st || TE.createDraft({ seed: cfg.seed, blind: cfg.blind, managers: cfg.managers, respins: cfg.respins, replace: cfg.replace, rounds: cfg.rounds });
   App.g = { cfg, mode: cfg.mode, st, meta: cfg.meta || cfg.managers.map((m, i) => ({ color: MGR_COLORS[i] })), me: cfg.me || 0, online: !!cfg.online, sel: null, shownSpin: null, spinning: false, view: cfg.me || 0, lastPlaced: null };
   Draft();
 }
@@ -48,6 +48,8 @@ function Draft() {
 function draftUpdate() {
   const g = App.g; if (!g || !g.st) return;
   const st = g.st;
+  // save the draft after every change (functions and the live state object are dropped from the config)
+  if (g.cfg.run && !g.online && !st.done) { const cfg = Object.assign({}, g.cfg); delete cfg.st; delete cfg.onDone; Runs.set(g.cfg.run, { phase: 'draft', cfg: JSON.parse(JSON.stringify(cfg)), st }); }
   if (st.done) { stopClock(); draftRenderAll(); later(() => finishDraft(), 700); return; }
   const cm = TE.currentManager(st);
   if (!g.online && localControl(g, cm)) g.view = cm;
@@ -278,7 +280,7 @@ function startClock() {
 function stopClock() { const g = App.g; if (g && g.clockT) { cancelAnimationFrame(g.clockT); g.clockT = null; } }
 
 function quitDraft() {
-  modal(`<h2 class="d">Leave?</h2><p>${App.g && App.g.online ? 'You will leave the room.' : 'Progress in this run will be lost.'}</p>
+  modal(`<h2 class="d">Leave?</h2><p>${App.g && App.g.online ? 'You will leave the room.' : App.g && App.g.cfg.run ? 'Your draft is saved. Pick it up any time.' : 'Progress in this run will be lost.'}</p>
     <div class="actions two"><button class="btn" data-close>Stay</button><button class="btn hot" id="leave">Leave</button></div>`, (bg) => {
     $('#leave', bg).addEventListener('click', () => { bg.remove(); stopClock(); if (App.g && App.g.online) Net.leave(); goTab(App.tab || 'play'); });
   });

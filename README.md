@@ -25,6 +25,17 @@ Double-click `Play CLUTCH.bat`, or run `python serve.py`, then open http://local
 ## Navigation
 Five bottom tabs: **Season** (the main game, Daily Draft, friends seasons, your season stats), **Games** (the 3 daily puzzles, Draft Duel, Salary Cap, Gameday, Kick It, Who's Better), **Club** (My Club, Packs and Binder), **Trophies** and **Me**.
 
+## Saving
+Everything saves on the device automatically: XP, coins, cards, card levels, sets, trophies, stats, the club, daily results and puzzle guesses. Runs in progress are saved too, one slot per mode (`Store.data.runs`, the `Runs` helper in `js/ui.js`). That covers:
+- Season, Daily Draft, Challenge and Party: every draft pick and every week of the season, including clutch choices.
+- Draft Duel: the draft and the series.
+- Salary Cap: every pick and the playoff run.
+- Gameday and the daily 2-Minute Drill: every snap.
+- Kick It: every kick.
+- Who's Better: your streak.
+
+Close the app at any point and a **Continue** card appears on the Season tab. Opening a mode with a run in progress offers Continue or Start over. Rivals matches lock in when they start, unopened promotion packs wait in My Club, and bought packs count the moment you pay. Online rooms are live peer-to-peer, so they can't be resumed.
+
 ## Progression
 Cards matter in four ways. They build **My Club**. Duplicates level cards up to ★★★. Any owned card can be played once per draft as a **Wildcard** (Season and Gameday; not Daily, challenges or online). Completing a team-decade **set** pays 300 coins, and a whole franchise pays 1,500. Coins are earned alongside XP and spent on card packs. XP and levels unlock fields (Primetime at Lv 3, Snow at 5, Retro at 8, Golden at 12). There are 36 achievements, and a card binder collects every player you draft (about 3,600 cards).
 

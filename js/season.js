@@ -6,7 +6,7 @@ const stageShort = (r) => (r.champion ? 'Won the Super Bowl' : r.stage === 4 ? '
 const PO_SHORT = { 'Wild Card': 'WC', 'Divisional': 'DIV', 'Conference Championship': 'CONF', 'Super Bowl': 'SB' };
 
 function playSeason(ctx) {
-  ctx.S = { choices: ctx.choices ? ctx.choices.map((c) => c.slice()) : ctx.users.map(() => []), shown: 0 };
+  ctx.S = { choices: ctx.choices ? ctx.choices.map((c) => c.slice()) : ctx.users.map(() => []), shown: ctx.shown || 0 };
   runSeason(ctx);
 }
 function runSeason(ctx) {
@@ -96,6 +96,7 @@ function SeasonScreen(ctx) {
   };
   const step = () => {
     if (finished || !el.isConnected) return;
+    if (ctx.persist) ctx.persist(S);
     if (S.shown >= events.length) {
       if (!S.out.pending) { finish(); return; }
       // watch the clutch game live up to the 2:00 warning, then hand over the call
@@ -140,6 +141,7 @@ function seasonClutch(ctx) {
   const S = ctx.S, { scenario, ui } = S.out.pending;
   showClutch(scenario, ctx.users[ui].name, (choice) => {
     S.choices[ui].push(choice);
+    if (ctx.persist) ctx.persist(S);
     const out = TE.simSeason(ctx.users, ctx.seed, { choices: S.choices, interactive: ctx.interactive });
     const tl = out.pending ? out.partial.timeline[ui] : out.results[ui].timeline;
     const ev = tl.filter((e) => e.clutch).pop();

@@ -47,7 +47,8 @@ function ClubScreen() {
     <div class="turf club-turf" id="cf">${FIELD_LINES}${fieldSlots(c.xi, { mods })}</div>
     <p class="mute center" style="font-weight:600;font-size:12.5px;margin:8px 0 0">Tap any spot to swap in a card you own. Each ★ is +1 rating.</p>
     <div class="actions">
-      <button class="btn primary big" id="play" ${clubReady() ? '' : 'disabled'}>${ico('play', 18)} ${clubReady() ? `Play Rivals match` : `Fill all 12 spots (${filled}/12)`}</button>
+      ${c.reward !== null && c.reward !== undefined ? `<button class="btn sun big" id="rwd">${ico('gift', 18)} Open your ${PACKS[c.reward].name} pack reward</button>` : ''}
+      <button class="btn primary big" id="play" ${clubReady() ? '' : 'disabled'}>${ico('play', 18)} ${!clubReady() ? `Fill all 12 spots (${filled}/12)` : c.match ? 'Finish your Rivals match' : 'Play Rivals match'}</button>
       <div class="two"><button class="btn" id="auto">${ico('sparkle', 18)} Auto-build</button><button class="btn" id="gd" ${clubReady() ? '' : 'disabled'}>${ico('clipboard', 18)} Gameday</button></div>
       ${filled < 12 ? `<button class="btn" data-act="packs">${ico('pack', 18)} Get more cards</button>` : ''}
     </div>
@@ -62,6 +63,7 @@ function ClubScreen() {
   });
   $('#auto', el).addEventListener('click', () => { autoBuildClub(); Sfx.good(); ClubScreen(); });
   const pb = $('#play', el); if (pb) pb.addEventListener('click', rivalsMatch);
+  const rw = $('#rwd', el); if (rw) rw.addEventListener('click', openClubReward);
   const gb = $('#gd', el); if (gb) gb.addEventListener('click', () => GamedayOpp(clubData().xi, levelMods(clubData().xi)));
 }
 async function editClubSlot(i) {
@@ -89,59 +91,39 @@ function rivalsOpponent(div, seed) {
 }
 function rivalsMatch() {
   const c = clubData();
-  const seed = 'rv:' + rid();
-  const opp = rivalsOpponent(c.div, seed);
+  // the match is locked in when it starts, so leaving can't re-roll a loss
+  if (!c.match) { c.match = { seed: 'rv:' + rid(), div: c.div }; Store.save(); }
+  const seed = c.match.seed, opp = rivalsOpponent(c.match.div, seed);
   const user = { name: myName(), xi: c.xi, mods: levelMods(c.xi) };
-  const out = TE.singleGame(user, opp, seed, { interactive: true, label: `Rivals · Division ${c.div}` });
-  if (out.pending) {
-    let chosen = null;
-    showClutch(out.pending, myName(), (choice) => {
-      chosen = choice;
-      const r = TE.singleGame(user, opp, seed, { choices: [choice] }).result;
-      return { win: r.win, text: r.clutch ? r.clutch.result : '', pf: r.us, pa: r.them, ot: r.ot };
-    }, () => rivalsResult(opp, TE.singleGame(user, opp, seed, { choices: [chosen] }).result, true));
-    return;
-  }
-  rivalsResult(opp, out.result, false);
+  playLiveMatch({ title: 'Rivals · Division ' + c.match.div, badge: 'Rivals · Division ' + c.match.div, user, opp, seed, po: false, onDone: (r, el) => rivalsResult(r, el) });
 }
-function rivalsResult(opp, r, hadClutch) {
+function rivalsResult(r, el) {
   const c = clubData();
-  const oc = teamColors(opp);
-  const qa = r.q.map((x) => x[0]), qb = r.q.map((x) => x[1]);
-  const otA = r.us - qa.reduce((a, b) => a + b, 0), otB = r.them - qb.reduce((a, b) => a + b, 0);
-  const el = go(`
-    <div class="topbar"><h2 class="d">Rivals · Division ${c.div}</h2></div>
-    <div class="vs"><div class="side"><div class="helmbig">${myTeamHelm()}</div><b>My Club</b><span>OVR ${Math.round(TE.teamProfile(c.xi, { mods: levelMods(c.xi) }).ovr)}</span></div><div class="x">VS</div><div class="side"><div class="helmbig">${helmet(oc.c1, oc.c2, true)}</div><b>${esc(opp.name)}</b><span>OVR ${Math.round(opp.prof.ovr)}</span></div></div>
-    <div class="qboard"><div class="h t">TEAM</div><div class="h">1</div><div class="h">2</div><div class="h">3</div><div class="h">4${otA || otB ? '+' : ''}</div><div class="h">F</div>
-      <div class="t">My Club</div>${[0, 1, 2, 3].map((i) => `<div data-a="${i}">·</div>`).join('')}<div class="f" id="fa">0</div>
-      <div class="t">${esc(opp.name)}</div>${[0, 1, 2, 3].map((i) => `<div data-b="${i}">·</div>`).join('')}<div class="f" id="fb">0</div></div>
-    <div id="after" style="margin-top:14px"></div>`);
-  (async () => {
-    let sa = 0, sb = 0;
-    for (let i = 0; i < 4; i++) {
-      if (!hadClutch) await sleep(600);
-      if (!el.isConnected) return;
-      const a = qa[i] + (i === 3 ? otA : 0), b = qb[i] + (i === 3 ? otB : 0);
-      sa += a; sb += b;
-      $(`[data-a="${i}"]`, el).textContent = a; $(`[data-b="${i}"]`, el).textContent = b;
-      $('#fa', el).textContent = sa; $('#fb', el).textContent = sb; Sfx.tick();
-    }
-    let promo = null;
-    if (r.win) {
-      c.w++; c.pts++;
-      if (c.pts >= 3 && c.div > 1) { c.div--; c.pts = 0; promo = c.div; c.top = Math.min(c.top, c.div); }
-      else if (c.pts >= 3) c.pts = 3;
-      addXP(45); Sfx.crowd(true);
-    } else { c.l++; c.pts = Math.max(0, c.pts - 1); addXP(15); Sfx.groan(); }
-    if (c.div <= 5) unlock('club5');
-    if (c.div <= 1) unlock('club1');
-    Store.save();
-    const reward = promo ? (promo <= 1 ? PACKS[2] : promo <= 4 ? PACKS[1] : PACKS[0]) : null;
-    $('#after', el).innerHTML = `<div class="outcome ${r.win ? 'win' : 'loss'}"><h2>${r.win ? 'Win' : 'Loss'} ${r.us}–${r.them}</h2><p>${promo ? `Promoted to Division ${promo}: ${esc(divName(promo))}!` : r.win ? `${3 - c.pts} more win${3 - c.pts === 1 ? '' : 's'} to promote` : 'Lost a point. Bounce back.'}</p></div>
-      ${promo ? `<div class="upgrade" style="margin-top:12px"><b>${ico('gift', 18)} Promotion reward: ${reward.name} pack</b><div class="mute" style="font-weight:600;font-size:13px">Better cards make a better club.</div></div>` : ''}
-      <div class="actions">${promo ? `<button class="btn primary" id="rw">${ico('pack', 18)} Open ${reward.name} pack</button>` : `<button class="btn primary" id="again">${ico('play', 18)} Next match</button>`}<button class="btn" id="club">${ico('shield', 18)} My Club</button></div>`;
-    if (promo) { confetti(); Sfx.trophy(); $('#rw', el).addEventListener('click', () => PackOpen(reward)); }
-    const ag = $('#again', el); if (ag) ag.addEventListener('click', rivalsMatch);
-    $('#club', el).addEventListener('click', ClubScreen);
-  })();
+  if (!c.match) return; // already counted
+  c.match = null;
+  let promo = null;
+  if (r.win) {
+    c.w++; c.pts++;
+    if (c.pts >= 3 && c.div > 1) { c.div--; c.pts = 0; promo = c.div; c.top = Math.min(c.top, c.div); }
+    else if (c.pts >= 3) c.pts = 3;
+    addXP(45); Sfx.crowd(true);
+  } else { c.l++; c.pts = Math.max(0, c.pts - 1); addXP(15); Sfx.groan(); }
+  if (c.div <= 5) unlock('club5');
+  if (c.div <= 1) unlock('club1');
+  const reward = promo ? (promo <= 1 ? 2 : promo <= 4 ? 1 : 0) : null;
+  if (reward !== null) c.reward = reward; // kept until opened
+  Store.save();
+  $('#after', el).innerHTML = `<div class="outcome ${r.win ? 'win' : 'loss'}" style="margin-top:12px"><h2>${r.win ? 'Win' : 'Loss'} ${r.us}–${r.them}</h2><p>${promo ? `Promoted to Division ${promo}: ${esc(divName(promo))}!` : r.win ? `${3 - c.pts} more win${3 - c.pts === 1 ? '' : 's'} to promote` : 'Lost a point. Bounce back.'}</p></div>
+    ${promo ? `<div class="upgrade" style="margin-top:12px"><b>${ico('gift', 18)} Promotion reward: ${PACKS[reward].name} pack</b><div class="mute" style="font-weight:600;font-size:13px">Better cards make a better club.</div></div>` : ''}
+    <div class="actions">${promo ? `<button class="btn primary" id="rw">${ico('pack', 18)} Open ${PACKS[reward].name} pack</button>` : `<button class="btn primary" id="again">${ico('play', 18)} Next match</button>`}<button class="btn" id="club">${ico('shield', 18)} My Club</button></div>`;
+  if (promo) { confetti(); Sfx.trophy(); $('#rw', el).addEventListener('click', openClubReward); }
+  const ag = $('#again', el); if (ag) ag.addEventListener('click', rivalsMatch);
+  $('#club', el).addEventListener('click', ClubScreen);
+}
+function openClubReward() {
+  const c = clubData();
+  if (c.reward === null || c.reward === undefined) return;
+  const pk = PACKS[c.reward];
+  c.reward = null; Store.save();
+  PackOpen(pk);
 }

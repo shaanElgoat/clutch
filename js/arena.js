@@ -26,14 +26,17 @@ function DuelStart() {
 function duelDraft(rival) {
   const seed = 'duel:' + rid();
   const meta = [{ color: MGR_COLORS[0] }, { color: MGR_COLORS[1], cpu: true }];
-  openDraft({ mode: 'duel', seed, cpuNoise: rival.noise, managers: [{ name: myName() }, { name: rival.name }], meta, title: 'Draft duel', onDone: (st) => {
-    DuelHub({ seed, rival, me: st.managers[0].xi, them: st.managers[1].xi, games: [] });
-  } });
+  openDraft({ mode: 'duel', run: 'duel', rivalId: rival.id, seed, cpuNoise: rival.noise, managers: [{ name: myName() }, { name: rival.name }], meta, title: 'Draft duel', onDone: (st) => duelDrafted(rival.id, seed, st) });
+}
+function duelDrafted(rivalId, seed, st) {
+  const rival = RIVALS.find((r) => r.id === rivalId) || RIVALS[0];
+  DuelHub({ seed, rival, me: st.managers[0].xi, them: st.managers[1].xi, games: [] });
 }
 // the rival's edge: better coaching, home cooking, whatever. Keeps The Shark scary.
 function duelProf(d) { const p = TE.teamProfile(d.them), e = d.rival.edge || 0; return Object.assign({}, p, { off: p.off + e, def: p.def + e, ovr: p.ovr + e }); }
 function duelScore(d) { return [d.games.filter((g) => g.win).length, d.games.filter((g) => !g.win).length]; }
 function DuelHub(d) {
+  Runs.set('duel', { phase: 'hub', d });
   const [w, l] = duelScore(d);
   const pm = TE.teamProfile(d.me), pt = duelProf(d);
   const el = go(`
@@ -46,13 +49,14 @@ function DuelHub(d) {
     <div class="seg two" id="xiSeg"><button class="on" data-v="me">Your team</button><button data-v="them">${esc(d.rival.name)}</button></div>
     <div id="xi">${miniField(d.me)}</div>`);
   $$('#xiSeg button', el).forEach((b) => b.addEventListener('click', () => { $$('#xiSeg button', el).forEach((x) => x.classList.toggle('on', x === b)); $('#xi', el).innerHTML = miniField(b.dataset.v === 'me' ? d.me : d.them); }));
-  $('#q', el).addEventListener('click', () => modal(`<h2 class="d">Leave the series?</h2><p>It won't count.</p><div class="actions two"><button class="btn" data-close>Stay</button><button class="btn hot" id="end">Leave</button></div>`, (bg) => { $('#end', bg).addEventListener('click', () => { bg.remove(); goTab(App.tab || 'games'); }); }));
+  $('#q', el).addEventListener('click', () => { toast('Series saved. Continue it any time.'); goTab(App.tab || 'games'); });
   $('#play', el).addEventListener('click', () => {
     const n = d.games.length + 1;
     playLiveMatch({ title: `Game ${n}`, badge: `Draft Duel · Game ${n}`, user: { name: myName(), xi: d.me }, opp: { name: d.rival.name, xi: d.them, prof: duelProf(d) }, seed: d.seed + ':g' + n, po: n === 3,
       onDone: (r, el2) => {
         d.games.push({ win: r.win, us: r.us, them: r.them });
         const [w2, l2] = duelScore(d), over = w2 === 2 || l2 === 2;
+        Runs.set('duel', { phase: 'hub', d });
         addXP(25 + (r.win ? 25 : 0));
         if (r.win) Sfx.crowd(true); else Sfx.groan();
         $('#after', el2).innerHTML = `<div class="outcome ${r.win ? 'win' : 'loss'}" style="margin-top:12px"><h2>${r.win ? 'You win game ' + n : esc(d.rival.name) + ' takes game ' + n}</h2><p>Series: ${w2}–${l2}${over ? '' : ' · ' + (w2 === 1 && l2 === 1 ? 'Game 3 decides it' : '')}</p></div>
@@ -62,6 +66,7 @@ function DuelHub(d) {
   });
 }
 function DuelEnd(d) {
+  Runs.clear('duel');
   const [w, l] = duelScore(d), won = w > l;
   const s = Store.data.stats;
   if (won) {
@@ -112,6 +117,7 @@ function CapStart() {
 }
 function CapBuild(c) {
   if (c.round >= TE.SLOTS) return CapHub(Object.assign(c, { wins: 0, done: false }));
+  Runs.set('cap', { phase: 'build', c });
   const left = CAP - c.spent, remaining = TE.SLOTS - c.round - 1;
   const reserve = remaining * 3; // always leave room for bargains
   const offers = capOffers(c);
@@ -132,7 +138,7 @@ function CapBuild(c) {
     CapBuild(c);
   }));
   $('#rr', el).addEventListener('click', () => { if (!c.rerollsLeft) return; c.rerollsLeft--; c.rerolls++; Sfx.tap(); CapBuild(c); });
-  $('#q', el).addEventListener('click', () => modal(`<h2 class="d">Quit building?</h2><div class="actions two"><button class="btn" data-close>Keep going</button><button class="btn hot" id="end">Quit</button></div>`, (bg) => { $('#end', bg).addEventListener('click', () => { bg.remove(); goTab(App.tab || 'games'); }); }));
+  $('#q', el).addEventListener('click', () => { toast('Team saved. Continue it any time.'); goTab(App.tab || 'games'); });
 }
 function capOpponent(c, k) {
   const R = CAP_ROUNDS[k];
@@ -144,7 +150,8 @@ function capOpponent(c, k) {
 }
 function CapHub(c) {
   if (!c.xi.every((x) => x !== null)) return;
-  collect(c.xi);
+  if (!c.collected) { collect(c.xi); c.collected = true; }
+  if (c.done || c.wins >= 4) Runs.clear('cap'); else Runs.set('cap', { phase: 'hub', c });
   const prof = TE.teamProfile(c.xi);
   const next = c.done ? null : capOpponent(c, c.wins);
   const nc = next ? teamColors(next) : null;
@@ -155,7 +162,7 @@ function CapHub(c) {
       <div class="side"><div class="helmbig">${helmet(nc.c1, nc.c2, true)}</div><b>${esc(next.name)}</b><span>OVR ${next.prof.ovr.toFixed(0)}</span></div></div>
       <button class="btn hot big" id="play">${ico('play', 18)} ${esc(CAP_ROUNDS[c.wins].label)}</button>` : ''}
     ${miniField(c.xi)}`);
-  $('#q', el).addEventListener('click', () => modal(`<h2 class="d">End this run?</h2><div class="actions two"><button class="btn" data-close>Keep going</button><button class="btn hot" id="end">End run</button></div>`, (bg) => { $('#end', bg).addEventListener('click', () => { bg.remove(); goTab(App.tab || 'games'); }); }));
+  $('#q', el).addEventListener('click', () => { toast('Run saved. Continue it any time.'); goTab(App.tab || 'games'); });
   if (next) $('#play', el).addEventListener('click', () => {
     const R = CAP_ROUNDS[c.wins];
     playLiveMatch({ title: R.label === 'Conference Championship' ? 'Conf. Championship' : R.label, badge: 'Salary Cap · ' + R.label, user: { name: myName(), xi: c.xi }, opp: next, seed: c.seed + ':r' + c.wins, po: true,
@@ -163,6 +170,7 @@ function CapHub(c) {
         const s = Store.data.stats;
         if (r.win) { c.wins++; addXP(40 + (c.wins === 4 ? 300 : 0)); Sfx.crowd(true); } else { c.done = true; Sfx.groan(); }
         s.capBest = Math.max(s.capBest || 0, c.wins); Store.save();
+        if (c.done || c.wins >= 4) Runs.clear('cap'); else Runs.set('cap', { phase: 'hub', c });
         if (c.wins >= 2) unlock('cap2');
         const champ = c.wins === 4;
         if (champ) { unlock('cap_ring'); confetti(); Sfx.trophy(); }

@@ -31,10 +31,11 @@ function GamedayStart() {
     steps: [['Draft 12', 'A quick draft with 3 re-spins.'], ['Pick your opponent', 'Rookie, Pro or Legend difficulty.'], ['Call it', 'Run, quick pass, deep shot or play-action. Every play shows the defense they were in, so read the tendencies.'], ['Defend', 'Pick a coverage for each of their drives.']],
     buttons: [
       ...(last ? [{ label: 'Play with my last team', cls: 'primary', fn: () => GamedayOpp(last) }] : []),
-      { label: last ? 'Draft a new team' : 'Draft my team', cls: last ? '' : 'primary', fn: () => openDraft({ mode: 'gameday', seed: 'gd:' + rid(), respins: 3, wildcard: true, managers: [{ name: myName() }], title: 'Gameday draft', onDone: (st) => { Store.data.gdTeam = st.managers[0].xi; Store.save(); GamedayOpp(st.managers[0].xi); } }) },
+      { label: last ? 'Draft a new team' : 'Draft my team', cls: last ? '' : 'primary', fn: () => openDraft({ mode: 'gameday', run: 'gameday', seed: 'gd:' + rid(), respins: 3, wildcard: true, managers: [{ name: myName() }], title: 'Gameday draft', onDone: gamedayDrafted }) },
     ],
   });
 }
+function gamedayDrafted(st) { Runs.clear('gameday'); Store.data.gdTeam = st.managers[0].xi; Store.save(); GamedayOpp(st.managers[0].xi); }
 function GamedayOpp(xi, mods) {
   const sorted = TE.CUR_SQ.slice().sort((a, b) => TE.squadStrength(a) - TE.squadStrength(b));
   const r = TE.rng('opp:' + rid());
@@ -58,9 +59,14 @@ function GamedayOpp(xi, mods) {
 function GamedayGame(xi, opp, diff, opts) {
   opts = opts || {};
   const me = { name: myName() === 'You' ? 'You' : myName(), xi, prof: TE.teamProfile(xi, { mods: opts.mods }) };
-  const g = GD.create(me, opp, 'gdg:' + rid());
-  g.halfRecv = 'them';
-  if (opts.drill) { g.quarter = 4; g.clock = opts.drill.clock; g.score = { us: 17, them: 17 + opts.drill.deficit }; g.ball = opts.drill.ball; }
+  const fresh = !opts.resumeG;
+  const g = opts.resumeG || GD.create(me, opp, 'gdg:' + rid());
+  if (fresh) g.halfRecv = 'them';
+  if (fresh && opts.drill) { g.quarter = 4; g.clock = opts.drill.clock; g.score = { us: 17, them: 17 + opts.drill.deficit }; g.ball = opts.drill.ball; }
+  // save after every snap; the daily drill and regular Gameday keep separate slots
+  const runKind = opts.drill ? 'drill' : 'gameday';
+  const saveGame = () => { if (opts.drill) Runs.set('drill', { seed: opts.seed || opts.drill.seed, daily: !!opts.daily, g }); else Runs.set('gameday', { xi, opp: { name: opp.name, xi: opp.xi, prof: opp.prof }, diff, mods: opts.mods || null, g }); };
+  if (!opts.drill || opts.daily) saveGame();
   const oc = teamColors(opp);
   const st = { last: null, busy: false, log: [] };
   const el = go(`
@@ -75,7 +81,7 @@ function GamedayGame(xi, opp, diff, opts) {
     <div class="playres" id="pres"></div>
     <div id="deck"></div>
     <div class="drive-log" id="dlog"></div>`, 'gd');
-  $('#quit', el).addEventListener('click', () => modal(`<h2 class="d">Forfeit?</h2><p>Leaving now counts as a loss.</p><div class="actions two"><button class="btn" data-close>Keep playing</button><button class="btn hot" id="ff">Forfeit</button></div>`, (bg) => { $('#ff', bg).addEventListener('click', () => { bg.remove(); goTab(App.tab || 'play'); }); }));
+  $('#quit', el).addEventListener('click', () => modal(`<h2 class="d">Forfeit?</h2><p>Leaving now counts as a loss.</p><div class="actions two"><button class="btn" data-close>Keep playing</button><button class="btn hot" id="ff">Forfeit</button></div>`, (bg) => { $('#ff', bg).addEventListener('click', () => { bg.remove(); if (!opts.drill) { Store.data.stats.gdPlayed++; Store.save(); } Runs.clear(runKind); goTab(App.tab || 'play'); }); }));
   // field strip, always from your end zone (left) to theirs (right)
   const strip = $('#strip', el);
   strip.innerHTML = `<div class="ez l" style="background:#2f6bff">YOU</div><div class="ez r" style="background:${oc.c1};color:${lightColor(oc.c1) ? '#111' : '#fff'}">THEM</div>` +
@@ -168,11 +174,13 @@ function GamedayGame(xi, opp, diff, opts) {
     }
     $('#deck', el).style.opacity = 1;
     st.busy = false;
+    if (!g.over && (!opts.drill || opts.daily)) saveGame();
     drawField(); drawBoard(false);
     if (opts.drill && (g.poss !== 'us' || g.over || g.quarter > 4)) { drillFinish(g, opts, el); return; }
     deck();
   }
   function finish() {
+    Runs.clear(runKind);
     const r = GD.result(g);
     Store.data.stats.gdPlayed++; if (r.win) Store.data.stats.gdWins++; Store.save();
     addXP(60 + (r.win ? 100 : 0) + (r.win && diff === 'Legend' ? 100 : 0));
@@ -190,18 +198,18 @@ function GamedayGame(xi, opp, diff, opts) {
     $('#share', el).addEventListener('click', () => shareOut(`CLUTCH Gameday 🏈📋\n${r.win ? 'W' : 'L'} ${r.us}-${r.them} vs ${opp.name} (${diff})\nI called every play. MVP: ${r.mvp}`));
   }
   drawField(); drawBoard(false);
-  $('#pres', el).innerHTML = opts.drill ? `<h3>2:00 left</h3><p>Down ${opts.drill.deficit}. Go win it.</p>` : `<h3>Kickoff!</h3><p>You receive. Call your first play.</p>`;
+  $('#pres', el).innerHTML = !fresh ? '<h3>Welcome back</h3><p>Picking up right where you left off.</p>' : opts.drill ? `<h3>2:00 left</h3><p>Down ${opts.drill.deficit}. Go win it.</p>` : `<h3>Kickoff!</h3><p>You receive. Call your first play.</p>`;
   deck();
 }
 
 // =====================================================================
 // WHO'S BETTER?
 // =====================================================================
-function WhosBetter() {
-  const s = { streak: 0, pair: null, busy: false, timer: null };
+function WhosBetter(resumeStreak) {
+  const s = { streak: typeof resumeStreak === 'number' ? resumeStreak : 0, pair: null, busy: false, timer: null, prevBest: Store.data.stats.hlBest };
   const el = go(`
     <div class="hl-head"><button class="icon-btn" data-act="home">${ICON.back}</button>
-      <div class="streak" id="stk">0<small>STREAK</small></div>
+      <div class="streak" id="stk">${s.streak}<small>STREAK</small></div>
       <div class="pill">BEST <b>${Store.data.stats.hlBest}</b></div></div>
     <div class="hl-body"><div class="hl-q d" style="font-size:22px">Who's rated higher?</div>
     <div class="hl-pair" id="pair"></div>
@@ -250,11 +258,14 @@ function WhosBetter() {
     draw(true, i);
     if (i === right) {
       s.streak++; Sfx.good(); buzz(15);
+      if (s.streak > Store.data.stats.hlBest) Store.data.stats.hlBest = s.streak;
+      Runs.set('hl', { streak: s.streak });
       const st = $('#stk', el); st.innerHTML = `${s.streak}<small>STREAK</small>`;
       setTimeout(() => { if (el.isConnected) next(); }, 1000);
     } else {
       Sfx.bad(); buzz([60, 40, 60]);
-      const best = Store.data.stats.hlBest;
+      Runs.clear('hl');
+      const best = s.prevBest;
       if (s.streak > best) { Store.data.stats.hlBest = s.streak; Store.save(); }
       if (s.streak >= 10) unlock('hl10');
       if (s.streak >= 25) unlock('hl25');

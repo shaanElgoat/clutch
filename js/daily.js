@@ -193,7 +193,7 @@ function DrillStart(practice) {
     <div class="spacer"></div>
     ${done ? `<div class="hero-card center"><b>Today's result: ${esc(done.title)}</b><div class="mute" style="font-weight:700">${esc(done.line)}</div></div><div class="actions"><button class="btn primary" id="pr">${ico('refresh', 18)} Practice drill</button></div>` : `<button class="btn primary" id="go" style="margin-top:12px">${ico('play', 18)} Take the field</button>`}`);
   const go1 = $('#go', el);
-  if (go1) go1.addEventListener('click', () => GamedayGame(S.xi, S.opp, '2-Minute Drill', { drill: S, daily }));
+  if (go1) go1.addEventListener('click', () => GamedayGame(S.xi, S.opp, '2-Minute Drill', { drill: S, daily, seed }));
   const pr = $('#pr', el);
   if (pr) pr.addEventListener('click', () => DrillStart(true));
 }
@@ -205,6 +205,7 @@ function drillFinish(g, opts, el) {
   const line = `${us}-${them} · ${plays} plays${res === 'win' ? ' · ' + left + ' left' : ''}`;
   if (res === 'win') { unlock('drill'); Store.data.stats.drillWins++; addXP(120); confetti(); Sfx.trophy(); } else if (res === 'tie') { addXP(50); Sfx.good(); } else { addXP(25); Sfx.groan(); }
   if (opts.daily) savePuzzle('drill', { res, title, line });
+  Runs.clear('drill');
   Store.save();
   $('#deck', el).innerHTML = `<div class="outcome ${res === 'loss' ? 'loss' : 'win'}"><h2>${res === 'win' ? 'Clutch!' : res === 'tie' ? 'Tied' : 'Stopped'}</h2><p>${title}</p><p class="mute" style="font-size:14px">${line}</p></div>
     <div class="actions"><button class="btn primary" id="sh">${ico('share', 18)} Share</button><div class="two"><button class="btn" id="again">${ico('refresh', 18)} Practice</button><button class="btn" data-act="home">Home</button></div></div>`;
@@ -216,7 +217,7 @@ function drillFinish(g, opts, el) {
 // =====================================================================
 // KICK IT: time your aim and power. Each make moves you back 5 yards.
 // =====================================================================
-function KickIt() {
+function KickIt(resume) {
   const best = Store.data.stats.kickBest;
   const el = go(`
     <div class="topbar"><button class="icon-btn" data-act="home">${ico('back', 20)}</button><div class="grow"><h2 class="d">Kick It</h2><div class="mute" style="font-weight:700;font-size:12px">Best: ${best} kicks</div></div>
@@ -226,6 +227,9 @@ function KickIt() {
     <div id="kover"></div>`);
   const cv = $('#kc', el), ctx = cv.getContext('2d');
   const S = { dist: 20, made: 0, lives: 3, longest: 0, phase: 'aim', aim: 0, power: 0, t0: performance.now(), wind: 0, fly: null, msg: '', msgCol: '#fff' };
+  S.prevBest = Store.data.stats.kickBest;
+  if (resume && resume.dist) Object.assign(S, { dist: resume.dist, made: resume.made, lives: resume.lives, longest: resume.longest });
+  const saveKick = () => Runs.set('kick', { S: { dist: S.dist, made: S.made, lives: S.lives, longest: S.longest } });
   const newKick = () => { S.wind = Math.round((Math.random() * 2 - 1) * Math.min(18, 4 + (S.dist - 20) * 0.35)); S.phase = 'aim'; S.t0 = performance.now(); S.fly = null; tip('Tap to lock your aim'); hud(); };
   const tip = (t) => { $('#tip', el).textContent = t; };
   const hud = () => {
@@ -319,11 +323,13 @@ function KickIt() {
       if (S.dist >= 55) unlock('kick55');
       if (S.made >= 10) unlock('kick10');
       S.dist = Math.min(70, S.dist + 5);
+      if (S.made > Store.data.stats.kickBest) Store.data.stats.kickBest = S.made;
     } else {
       S.lives--; S.msg = f.short ? 'SHORT' : f.lateral < 0 ? 'WIDE LEFT' : 'WIDE RIGHT'; S.msgCol = '#ff4058';
       Sfx.groan(); buzz([50, 40, 50]);
     }
     hud();
+    if (S.lives > 0) saveKick(); else Runs.clear('kick');
     setTimeout(() => {
       if (!el.isConnected) return;
       S.msg = '';
@@ -333,7 +339,7 @@ function KickIt() {
   }
   function over() {
     S.phase = 'over';
-    const prev = Store.data.stats.kickBest;
+    const prev = S.prevBest;
     if (S.made > prev) { Store.data.stats.kickBest = S.made; Store.save(); }
     addXP(10 + S.made * 12);
     $('#tip', el).textContent = '';
@@ -385,8 +391,10 @@ function PackOpen(pack) {
     if ((coll[pid] || 1) < 4) { coll[pid] = (coll[pid] || 1) + 1; if (coll[pid] >= 4) unlock('star3'); return `<span class="lvltag">${'★'.repeat(coll[pid] - 1)} LEVEL UP</span>`; }
     dupeCoins += dupeValue(TE.PLAYERS[pid].r); return `<span class="dupetag">+${dupeValue(TE.PLAYERS[pid].r)}</span>`;
   });
-  Store.save();
+  collect(cards);
+  Store.data.coins += dupeCoins;
   Store.data.stats.packs++;
+  Store.save();
   const el = go(`
     <div class="topbar"><h2 class="d">${esc(pack.name)} pack</h2></div>
     <div class="pack-stage" id="stage"><button class="pack-big" id="pk" style="background:${pack.grad}"><div class="pa-shine"></div><span>CLUTCH</span><b>${esc(pack.name)}</b><small>Tap to open</small></button></div>
@@ -398,7 +406,6 @@ function PackOpen(pack) {
     await sleep(700);
     const best = Math.max(...cards.map((pid) => TE.PLAYERS[pid].r));
     $('#stage', el).innerHTML = `<div class="flash ${tierOf(best)}"></div><div class="reveal-grid n${cards.length}">${cards.map((pid, i) => `<div class="flip" data-i="${i}"><div class="flip-in"><div class="pback"><span>CLUTCH</span></div><div class="pfront">${pcard(pid, { big: false, stars: cardLevel(pid) })}${tags[i]}</div></div></div>`).join('')}</div>`;
-    collect(cards);
     for (let i = 0; i < cards.length; i++) {
       await sleep(i === cards.length - 1 && TE.PLAYERS[cards[i]].r >= 90 ? 900 : 420);
       if (!el.isConnected) return;
@@ -406,7 +413,6 @@ function PackOpen(pack) {
       const r = TE.PLAYERS[cards[i]].r;
       if (r >= 95) { Sfx.trophy(); confetti(2000); buzz([40, 60, 40]); unlock('pack_legend'); } else if (r >= 90) { Sfx.achievement(); buzz(30); } else Sfx.select();
     }
-    Store.data.coins += dupeCoins; Store.save();
     $('#after', el).innerHTML = `${dupeCoins ? `<div class="hero-card center" style="margin-top:14px"><b>${ico('coin', 18)} +${dupeCoins} coins</b> <span class="mute" style="font-weight:700">from maxed-out duplicates</span></div>` : ''}
       <div class="actions"><button class="btn primary" id="more">${ico('pack', 18)} Back to packs</button><button class="btn" id="bind">${ico('cards', 18)} View binder</button></div>`;
     $('#more', el).addEventListener('click', Packs);

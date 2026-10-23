@@ -64,7 +64,9 @@ function Home() {
 
     ${d.news26 ? `<div class="news"><div class="nw-ic">${ico('sparkle', 20)}</div><div class="grow"><b>The 2026 season is live</b><small>New rosters, 10 new head coaches and rookies like Mendoza and Love. Last year's players are now '25 pack cards.</small></div><button class="icon-btn" id="nwx">${ico('x', 16)}</button></div>` : ''}
 
-    <button class="feature" data-act="season"><div class="ft-glow"></div><span class="tag">${ico('star', 14)} Main event · 2026</span><h3>Season</h3><p>Spin a team, draft 12 from its 2026 roster, chase 17-0 and the ring.</p><span class="go">Play ${ico('chevron', 16)}</span><div class="art">${helmet('#ffffff', '#ffc531')}</div></button>
+    ${continueStrip(['season', 'daily', 'challenge', 'party', 'duel', 'cap', 'gameday', 'drill', 'kick', 'hl'])}
+
+    <button class="feature" data-act="season"><div class="ft-glow"></div><span class="tag">${ico('star', 14)} Main event · 2026</span><h3>Season</h3><p>Spin a team, draft 12 from its 2026 roster, chase 17-0 and the ring.</p><span class="go">${Runs.get('season') ? 'Continue' : 'Play'} ${ico('chevron', 16)}</span><div class="art">${helmet('#ffffff', '#ffc531')}</div></button>
 
 
     <div class="sec-row"><h3>Your seasons</h3></div>
@@ -106,14 +108,14 @@ function GamesTab() {
 
     <div class="sec-row"><h3>Head to head</h3></div>
     <div class="bento">
-      <button class="mode-card big duel" data-act="duel"><div class="mc-ic violet">${ico('users', 24)}</div><b>Draft Duel</b><small>Steal-draft vs a rival GM, then a best-of-3, live</small><span class="mc-tag">${s.duelW || 0} won</span></button>
-      <button class="mode-card" data-act="cap"><div class="mc-ic sun">${ico('coin', 22)}</div><b>Salary Cap</b><small>$${CAP}M to build a champ</small><span class="mc-tag">${s.capBest || 0}/4</span></button>
-      <button class="mode-card" data-act="gameday"><div class="mc-ic mint">${ico('clipboard', 22)}</div><b>Gameday</b><small>Call every play</small><span class="mc-tag">${s.gdWins}-${s.gdPlayed - s.gdWins}</span></button>
+      <button class="mode-card big duel" data-act="duel"><div class="mc-ic violet">${ico('users', 24)}</div><b>Draft Duel</b><small>Steal-draft vs a rival GM, then a best-of-3, live</small>${Runs.get('duel') ? '<span class="mc-tag hot">Resume</span>' : `<span class="mc-tag">${s.duelW || 0} won</span>`}</button>
+      <button class="mode-card" data-act="cap"><div class="mc-ic sun">${ico('coin', 22)}</div><b>Salary Cap</b><small>$${CAP}M to build a champ</small>${Runs.get('cap') ? '<span class="mc-tag hot">Resume</span>' : `<span class="mc-tag">${s.capBest || 0}/4</span>`}</button>
+      <button class="mode-card" data-act="gameday"><div class="mc-ic mint">${ico('clipboard', 22)}</div><b>Gameday</b><small>Call every play</small>${Runs.get('gameday') ? '<span class="mc-tag hot">Resume</span>' : `<span class="mc-tag">${s.gdWins}-${s.gdPlayed - s.gdWins}</span>`}</button>
     </div>
     <div class="sec-row"><h3>Arcade</h3></div>
     <div class="bento">
-      <button class="mode-card" data-act="kick"><div class="mc-ic orange">${ico('goalpost', 22)}</div><b>Kick It</b><small>Arcade field goals</small><span class="mc-tag">Best ${s.kickBest}</span></button>
-      <button class="mode-card" data-act="hl"><div class="mc-ic blue">${ico('scale', 22)}</div><b>Who's Better?</b><small>Higher or lower</small><span class="mc-tag">Best ${s.hlBest}</span></button>
+      <button class="mode-card" data-act="kick"><div class="mc-ic orange">${ico('goalpost', 22)}</div><b>Kick It</b><small>Arcade field goals</small>${Runs.get('kick') ? '<span class="mc-tag hot">Resume</span>' : `<span class="mc-tag">Best ${s.kickBest}</span>`}</button>
+      <button class="mode-card" data-act="hl"><div class="mc-ic blue">${ico('scale', 22)}</div><b>Who's Better?</b><small>Higher or lower</small>${Runs.get('hl') ? '<span class="mc-tag hot">Resume</span>' : `<span class="mc-tag">Best ${s.hlBest}</span>`}</button>
     </div>`, 'has-tabs');
   tabbar('games');
 }
@@ -162,13 +164,17 @@ function SeasonSetup(mode) {
   if (tc) tc.addEventListener('click', () => { clock = !clock; d.shotClock = clock; Store.save(); tc.classList.toggle('on', clock); Sfx.tap(); });
   $('#go', el).addEventListener('click', () => {
     const seed = mode === 'daily' ? 'daily:' + todayKey() : ch ? ch.s : 'q:' + rid();
-    openDraft({ mode, seed, blind, shotClock: clock ? 8 : 0, respins: 2, wildcard: mode === 'quick', managers: [{ name: myName() }], title: title + ' draft', onDone: (st) => soloSeason(mode, st, blind) });
+    openDraft({ mode, run: SEASON_RUN[mode], ch: ch || undefined, seed, blind, shotClock: clock ? 8 : 0, respins: 2, wildcard: mode === 'quick', managers: [{ name: myName() }], title: title + ' draft', onDone: (st) => soloSeason(mode, st, blind) });
   });
 }
-function soloSeason(mode, st, blind) {
-  const xi = st.managers[0].xi;
-  playSeason({ users: [{ name: myName(), xi }], seed: st.seed, interactive: [true], meta: [{ color: MGR_COLORS[0] }], title: mode === 'daily' ? 'Daily #' + dailyNumber(todayKey()) : 'The Season', onFinish: (out, choices) => {
+const SEASON_RUN = { quick: 'season', daily: 'daily', challenge: 'challenge' };
+function soloSeason(mode, st, blind, resume) {
+  const xi = st.managers[0].xi, kind = SEASON_RUN[mode];
+  const persist = (S) => Runs.set(kind, { phase: 'season', mode, seed: st.seed, xi, blind: !!blind, choices: S.choices[0], shown: S.shown, ch: mode === 'challenge' ? App.challenge : undefined });
+  persist({ choices: [resume ? resume.choices : []], shown: resume ? resume.shown : 0 });
+  playSeason({ users: [{ name: myName(), xi }], seed: st.seed, interactive: [true], meta: [{ color: MGR_COLORS[0] }], persist, choices: resume ? [resume.choices] : undefined, shown: resume ? resume.shown : 0, title: mode === 'daily' ? 'Daily #' + dailyNumber(todayKey()) : 'The Season', onFinish: (out, choices) => {
     const r = out.results[0];
+    Runs.clear(kind);
     seasonProgress(r, { blind });
     if (mode === 'daily') {
       Store.data.daily[todayKey()] = { s: st.seed, xi, c: choices[0], title: TE.verdict(r).title, rec: rec(r), score: r.score };
@@ -236,13 +242,16 @@ function PartySetup() {
   $('#go', el).addEventListener('click', () => {
     if (!mgrs.some((m) => !m.cpu)) { toast('Add at least one human'); return; }
     const meta = mgrs.map((m, i) => ({ color: MGR_COLORS[i], cpu: m.cpu }));
-    openDraft({ mode: 'party', seed: 'p:' + rid(), blind, managers: mgrs.map((m, i) => ({ name: (m.name || '').trim() || 'Player ' + (i + 1) })), meta, title: 'Party draft', onDone: (st) => multiSeason(st, meta, false) });
+    openDraft({ mode: 'party', run: 'party', seed: 'p:' + rid(), blind, managers: mgrs.map((m, i) => ({ name: (m.name || '').trim() || 'Player ' + (i + 1) })), meta, title: 'Party draft', onDone: (st) => multiSeason(st, meta, false) });
   });
 }
-function multiSeason(st, meta, online) {
+function multiSeason(st, meta, online, shown) {
   const users = st.managers.map((m) => ({ name: m.name, xi: m.xi }));
   const me = online && App.g ? App.g.me : null;
-  playSeason({ users, seed: st.seed, interactive: users.map(() => false), meta, title: online ? 'Online season' : 'Party season', onFinish: (out) => MultiResults(out.results, users, meta, online, st, me) });
+  const lite = { seed: st.seed, blind: st.blind, managers: st.managers.map((m) => ({ name: m.name, xi: m.xi })) };
+  const persist = online ? null : (S) => Runs.set('party', { phase: 'season', st: lite, meta, shown: S.shown });
+  if (persist) persist({ shown: shown || 0 });
+  playSeason({ users, seed: st.seed, interactive: users.map(() => false), meta, persist, shown: shown || 0, title: online ? 'Online season' : 'Party season', onFinish: (out) => { if (!online) Runs.clear('party'); MultiResults(out.results, users, meta, online, st, me); } });
 }
 function MultiResults(R, users, meta, online, st, me) {
   const order = R.map((r, i) => i).sort((a, b) => R[b].score - R[a].score);
@@ -265,7 +274,7 @@ function MultiResults(R, users, meta, online, st, me) {
   const rb = $('#rematch', el);
   if (rb) rb.addEventListener('click', () => {
     if (online) { Net.backToLobby(); return; }
-    openDraft({ mode: 'party', seed: 'p:' + rid(), blind: st.blind, managers: users.map((u) => ({ name: u.name })), meta, title: 'Party draft', onDone: (s2) => multiSeason(s2, meta, false) });
+    openDraft({ mode: 'party', run: 'party', seed: 'p:' + rid(), blind: st.blind, managers: users.map((u) => ({ name: u.name })), meta, title: 'Party draft', onDone: (s2) => multiSeason(s2, meta, false) });
   });
 }
 // called by net.js when the host starts (or a client receives) an online draft
@@ -375,11 +384,89 @@ function Profile() {
   }, 'sheet'));
 }
 
+// ================= RESUME =================
+// Every mode with a run in progress picks up exactly where it was left.
+const RUN_INFO = {
+  season: { t: 'Season', ic: 'ball', col: 'blue', start: () => SeasonSetup('quick') },
+  daily: { t: 'Daily Draft', ic: 'calendar', col: 'sun', start: () => SeasonSetup('daily') },
+  challenge: { t: 'Challenge', ic: 'users', col: 'pink', start: null },
+  party: { t: 'Party season', ic: 'users', col: 'ink', start: PartySetup },
+  duel: { t: 'Draft Duel', ic: 'users', col: 'violet', start: () => DuelStart() },
+  cap: { t: 'Salary Cap', ic: 'coin', col: 'sun', start: () => CapStart() },
+  gameday: { t: 'Gameday', ic: 'clipboard', col: 'mint', start: () => GamedayStart() },
+  drill: { t: '2-Minute Drill', ic: 'timer', col: 'violet', start: null },
+  kick: { t: 'Kick It', ic: 'goalpost', col: 'orange', start: () => KickIt() },
+  hl: { t: "Who's Better?", ic: 'scale', col: 'blue', start: () => WhosBetter() },
+};
+function runSummary(k, r) {
+  if (r.phase === 'draft') { const st = r.st; return `Drafting · pick ${Math.min(st.rounds, st.round + 1)} of ${st.rounds}`; }
+  if (r.phase === 'season') { const n = r.shown || 0; return n >= 17 ? 'Playoffs' : n ? `After week ${n}` : 'Kickoff'; }
+  if (k === 'duel') { const w = r.d.games.filter((g) => g.win).length; return `Series ${w}–${r.d.games.length - w} vs ${r.d.rival.name}`; }
+  if (k === 'cap') return r.phase === 'build' ? `Building · pick ${r.c.round + 1} of 12 · $${CAP - r.c.spent}M left` : `Playoff run · ${r.c.wins} win${r.c.wins === 1 ? '' : 's'}`;
+  if (k === 'gameday' || k === 'drill') { const g = r.g; return `${g.ot ? 'OT' : 'Q' + Math.min(4, g.quarter)} ${GD.fmtClock(g.clock)} · ${g.score.us}–${g.score.them}`; }
+  if (k === 'kick') return `${r.S.made} made · ${r.S.lives} ${r.S.lives === 1 ? 'life' : 'lives'} left`;
+  if (k === 'hl') return `Streak of ${r.streak}`;
+  return 'In progress';
+}
+function resumeRun(k) {
+  const r = Runs.get(k);
+  if (!r) return false;
+  try {
+    if (r.phase === 'draft') {
+      const c = r.cfg;
+      const done = {
+        season: (st) => soloSeason('quick', st, c.blind), daily: (st) => soloSeason('daily', st, c.blind),
+        challenge: (st) => { App.challenge = c.ch; soloSeason('challenge', st, c.blind); },
+        party: (st) => multiSeason(st, c.meta, false), duel: (st) => duelDrafted(c.rivalId, c.seed, st), gameday: gamedayDrafted,
+      }[k];
+      if (k === 'challenge') App.challenge = c.ch;
+      openDraft(Object.assign({}, c, { st: r.st, onDone: done }));
+    } else if (r.phase === 'season') {
+      if (k === 'party') multiSeason(r.st, r.meta, false, r.shown);
+      else { if (r.ch) App.challenge = r.ch; soloSeason(r.mode, { seed: r.seed, managers: [{ xi: r.xi }] }, r.blind, { choices: r.choices || [], shown: r.shown || 0 }); }
+    } else if (k === 'duel') DuelHub(r.d);
+    else if (k === 'cap') (r.phase === 'build' ? CapBuild : CapHub)(r.c);
+    else if (k === 'gameday') GamedayGame(r.xi, r.opp, r.diff, { mods: r.mods, resumeG: r.g });
+    else if (k === 'drill') { const S = drillSetup(r.seed); GamedayGame(S.xi, S.opp, '2-Minute Drill', { drill: S, daily: r.daily, seed: r.seed, resumeG: r.g }); }
+    else if (k === 'kick') KickIt(r.S);
+    else if (k === 'hl') WhosBetter(r.streak);
+    else return false;
+  } catch (e) {
+    console.error(e); Runs.clear(k); toast("Couldn't restore that run, sorry"); return false;
+  }
+  return true;
+}
+// open a mode: if a run is in progress, offer to continue it or start over
+function runOr(k, start) {
+  const r = Runs.get(k);
+  if (!r) return start();
+  const info = RUN_INFO[k];
+  modal(`<div class="resume-head"><div class="mc-ic ${info.col}">${ico(info.ic, 22)}</div><div><h2 class="d" style="margin:0">${info.t}</h2><div class="mute" style="font-weight:700;font-size:13px">${esc(runSummary(k, r))}</div></div></div>
+    <p style="margin:12px 0 0">You have a game in progress. Pick up where you left off?</p>
+    <div class="actions"><button class="btn primary" id="cont">${ico('play', 18)} Continue</button>${start ? '<button class="btn" id="new">Start over</button>' : ''}</div>`, (bg) => {
+    $('#cont', bg).addEventListener('click', () => { bg.remove(); resumeRun(k); });
+    const n = $('#new', bg);
+    if (n) n.addEventListener('click', () => modal(`<h2 class="d">Start over?</h2><p>Your ${info.t} in progress will be deleted.</p><div class="actions two"><button class="btn" data-close>Keep it</button><button class="btn hot" id="del">Start over</button></div>`, (bg2) => {
+      $('#del', bg2).addEventListener('click', () => { bg2.remove(); bg.remove(); Runs.clear(k); start(); });
+    }, 'sheet'));
+  }, 'sheet');
+}
+// "Pick up where you left off" strip
+function continueStrip(kinds) {
+  const list = kinds.map((k) => [k, Runs.get(k)]).filter(([, r]) => r).sort((a, b) => b[1].at - a[1].at);
+  if (!list.length) return '';
+  return `<div class="sec-row"><h3>Continue</h3></div><div class="cont-list">${list.map(([k, r]) => { const i = RUN_INFO[k]; return `<button class="cont" data-resume="${k}"><div class="mc-ic ${i.col}">${ico(i.ic, 20)}</div><div class="grow"><b>${i.t}</b><small>${esc(runSummary(k, r))}</small></div><span class="dl-go">${ico('play', 14)}</span></button>`; }).join('')}</div>`;
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-resume]');
+  if (b) { Sfx.tap(); resumeRun(b.dataset.resume); }
+});
+
 // ================= BOOT =================
 const ACTIONS = {
-  home: () => goTab(App.tab || 'play'), dailytab: () => goTab('games'), duel: DuelStart, cap: CapStart, binder: Cards, help: Help, quit: () => quitDraft(), season: () => SeasonSetup('quick'), daily: openDaily, gameday: GamedayStart,
-  hl: WhosBetter, friends: FriendsMenu, party: PartySetup, online: () => OnlineScreen(),
-  club: () => ClubScreen(), grid: () => GridGame(), who: () => MysteryGame(), drill: () => DrillStart(), kick: KickIt, packs: Packs,
+  home: () => goTab(App.tab || 'play'), dailytab: () => goTab('games'), duel: () => runOr('duel', DuelStart), cap: () => runOr('cap', CapStart), binder: Cards, help: Help, quit: () => quitDraft(), season: () => runOr('season', () => SeasonSetup('quick')), daily: () => (Runs.get('daily') ? resumeRun('daily') : openDaily()), gameday: () => runOr('gameday', GamedayStart),
+  hl: () => runOr('hl', WhosBetter), friends: FriendsMenu, party: () => runOr('party', PartySetup), online: () => OnlineScreen(),
+  club: () => ClubScreen(), grid: () => GridGame(), who: () => MysteryGame(), drill: () => (Runs.get('drill') ? resumeRun('drill') : DrillStart()), kick: () => runOr('kick', KickIt), packs: Packs,
 };
 document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-act]');

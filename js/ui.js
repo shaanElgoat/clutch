@@ -14,7 +14,7 @@ const Store = {
   load() {
     let d = null;
     try { d = JSON.parse(localStorage.getItem(this.key)); } catch (_) {}
-    this.data = Object.assign({ name: '', sound: true, haptics: true, fastSpin: false, theme: 'day', xp: 0, coins: 600, freePack: null, sets: {}, club: null, stats: {}, ach: {}, coll: {}, daily: {}, puzzles: {}, dynasty: null, seenHelp: false }, d || {});
+    this.data = Object.assign({ name: '', sound: true, haptics: true, fastSpin: false, theme: 'day', xp: 0, coins: 600, freePack: null, sets: {}, club: null, runs: {}, stats: {}, ach: {}, coll: {}, daily: {}, puzzles: {}, dynasty: null, seenHelp: false }, d || {});
     this.data.stats = Object.assign({}, STATS0, this.data.stats);
     this.data.sets = this.data.sets || {};
     if ((this.data.dv || 2) < 3) {
@@ -26,6 +26,13 @@ const Store = {
     return this.data;
   },
   save() { try { localStorage.setItem(this.key, JSON.stringify(this.data)); } catch (_) {} },
+};
+// In-progress runs, one slot per mode, saved after every pick, play and game,
+// so closing the app (or the phone killing it) never loses a run.
+const Runs = {
+  get: (k) => (Store.data.runs || {})[k] || null,
+  set(k, v) { Store.data.runs = Store.data.runs || {}; Store.data.runs[k] = Object.assign({}, v, { at: Date.now() }); Store.save(); },
+  clear(k) { if (Store.data.runs && Store.data.runs[k]) { delete Store.data.runs[k]; Store.save(); } },
 };
 
 const levelOf = (xp) => Math.floor(Math.sqrt(xp / 120)) + 1;

@@ -21,7 +21,15 @@ const Store = {
       // 2026 update: last year's rosters became the '25 pack set, so move any claimed set rewards with them
       Object.keys(this.data.sets).forEach((k) => { if (/-now$/.test(k)) { this.data.sets[k.replace(/-now$/, '-25')] = 1; delete this.data.sets[k]; } });
       this.data.dv = 3;
-      this.data.news26 = !!d;
+    }
+    if (this.data.dv < 4) {
+      // the binder now only holds cards from packs bought with coins: wipe it once and tell the player
+      const had = d && d.coll && Object.keys(d.coll).length > 0;
+      this.data.coll = {}; this.data.sets = {};
+      if (this.data.club) Object.assign(this.data.club, { xi: new Array(12).fill(null), match: null });
+      this.data.dv = 4;
+      this.data.news26 = false;
+      if (had) this.data.resetNotice = true;
     }
     return this.data;
   },
@@ -78,8 +86,8 @@ const ACH = [
   { id: 'duel_shark', icon: 'sword', t: 'Shark Tank', d: 'Beat The Shark in a Draft Duel' },
   { id: 'cap2', icon: 'coin', t: 'Moneyball', d: 'Win 2 playoff games in Salary Cap' },
   { id: 'cap_ring', icon: 'crown', t: 'Capologist', d: 'Win the Super Bowl in Salary Cap' },
-  { id: 'hl10', icon: 'scale', t: 'Scout', d: "Who's Better? streak of 10" },
-  { id: 'hl25', icon: 'eye', t: 'Genius Scout', d: "Who's Better? streak of 25" },
+  { id: 'hl10', icon: 'scale', t: 'Stat Head', d: "Who's Better? streak of 10" },
+  { id: 'hl25', icon: 'eye', t: 'Walking Almanac', d: "Who's Better? streak of 25" },
   { id: 'daily3', icon: 'calendar', t: 'Habit', d: 'Play the Daily 3 days in a row' },
   { id: 'grid9', icon: 'grid', t: 'Immaculate', d: 'Fill all 9 squares of The Grid' },
   { id: 'mystery', icon: 'question', t: 'Detective', d: "Solve Who's That? in 4 guesses or fewer" },

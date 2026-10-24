@@ -47,7 +47,7 @@ function ClubScreen() {
     <div class="turf club-turf" id="cf">${FIELD_LINES}${fieldSlots(c.xi, { mods })}</div>
     <p class="mute center" style="font-weight:600;font-size:12.5px;margin:8px 0 0">Tap any spot to swap in a card you own. Each ★ is +1 rating.</p>
     <div class="actions">
-      ${c.reward !== null && c.reward !== undefined ? `<button class="btn sun big" id="rwd">${ico('gift', 18)} Open your ${PACKS[c.reward].name} pack reward</button>` : ''}
+      ${c.reward !== null && c.reward !== undefined ? `<button class="btn sun big" id="rwd">${ico('coin', 18)} Claim your ${PACKS[c.reward].cost.toLocaleString()} coin reward</button>` : ''}
       <button class="btn primary big" id="play" ${clubReady() ? '' : 'disabled'}>${ico('play', 18)} ${!clubReady() ? `Fill all 12 spots (${filled}/12)` : c.match ? 'Finish your Rivals match' : 'Play Rivals match'}</button>
       <div class="two"><button class="btn" id="auto">${ico('sparkle', 18)} Auto-build</button><button class="btn" id="gd" ${clubReady() ? '' : 'disabled'}>${ico('clipboard', 18)} Gameday</button></div>
       ${filled < 12 ? `<button class="btn" data-act="packs">${ico('pack', 18)} Get more cards</button>` : ''}
@@ -114,8 +114,8 @@ function rivalsResult(r, el) {
   if (reward !== null) c.reward = reward; // kept until opened
   Store.save();
   $('#after', el).innerHTML = `<div class="outcome ${r.win ? 'win' : 'loss'}" style="margin-top:12px"><h2>${r.win ? 'Win' : 'Loss'} ${r.us}–${r.them}</h2><p>${promo ? `Promoted to Division ${promo}: ${esc(divName(promo))}!` : r.win ? `${3 - c.pts} more win${3 - c.pts === 1 ? '' : 's'} to promote` : 'Lost a point. Bounce back.'}</p></div>
-    ${promo ? `<div class="upgrade" style="margin-top:12px"><b>${ico('gift', 18)} Promotion reward: ${PACKS[reward].name} pack</b><div class="mute" style="font-weight:600;font-size:13px">Better cards make a better club.</div></div>` : ''}
-    <div class="actions">${promo ? `<button class="btn primary" id="rw">${ico('pack', 18)} Open ${PACKS[reward].name} pack</button>` : `<button class="btn primary" id="again">${ico('play', 18)} Next match</button>`}<button class="btn" id="club">${ico('shield', 18)} My Club</button></div>`;
+    ${promo ? `<div class="upgrade" style="margin-top:12px"><b>${ico('coin', 18)} Promotion reward: ${PACKS[reward].cost.toLocaleString()} coins</b><div class="mute" style="font-weight:600;font-size:13px">Enough for a ${PACKS[reward].name} pack.</div></div>` : ''}
+    <div class="actions">${promo ? `<button class="btn primary" id="rw">${ico('coin', 18)} Claim ${PACKS[reward].cost.toLocaleString()} coins</button>` : `<button class="btn primary" id="again">${ico('play', 18)} Next match</button>`}<button class="btn" id="club">${ico('shield', 18)} My Club</button></div>`;
   if (promo) { confetti(); Sfx.trophy(); $('#rw', el).addEventListener('click', openClubReward); }
   const ag = $('#again', el); if (ag) ag.addEventListener('click', rivalsMatch);
   $('#club', el).addEventListener('click', ClubScreen);
@@ -123,7 +123,8 @@ function rivalsResult(r, el) {
 function openClubReward() {
   const c = clubData();
   if (c.reward === null || c.reward === undefined) return;
-  const pk = PACKS[c.reward];
-  c.reward = null; Store.save();
-  PackOpen(pk);
+  const amt = PACKS[c.reward].cost;
+  c.reward = null; Store.data.coins += amt; Store.save();
+  Sfx.achievement(); toast(`+${amt.toLocaleString()} coins`);
+  App.clubSeg = 'packs'; goTab('club');
 }

@@ -2,7 +2,7 @@
 // CLUTCH engine: pure game logic (no DOM). Runs in the browser and in Node for tests.
 (function (root) {
   const DATA = typeof module !== 'undefined' ? require('./data.js') : { ERAS, ERA_LABEL, TEAMS, SEASON25, CURRENT, CURRENT_ERA };
-  const DATA_VERSION = 3;
+  const DATA_VERSION = 4;
 
   // ---------- seeded randomness ----------
   function hash(str) {
@@ -148,6 +148,11 @@
     return SQ_CACHE[sq];
   }
   const squadStrength = (sq) => squadTeam(sq).prof.ovr;
+  let STR_MIN = null;
+  const spinWeight = (sq) => {
+    if (STR_MIN === null) STR_MIN = Math.min(...CUR_SQ.map(squadStrength));
+    return SQUADS[sq].era === DATA.CURRENT_ERA ? Math.exp(-SIM.SPINW * (squadStrength(sq) - STR_MIN)) : 1;
+  };
 
   // ---------- draft ----------
   function openSlotsFor(pid, xi, replace) {
@@ -170,7 +175,7 @@
     const n = o.managers.length;
     const st = {
       v: DATA_VERSION, seed: String(o.seed), blind: !!o.blind, multi: n > 1,
-      managers: o.managers.map((m) => ({ name: m.name, xi: m.xi ? m.xi.slice() : new Array(SLOTS).fill(null), respins: n > 1 ? 0 : (o.respins === undefined ? 2 : o.respins), picks: [] })),
+      managers: o.managers.map((m) => ({ name: m.name, xi: m.xi ? m.xi.slice() : new Array(SLOTS).fill(null), respins: n > 1 ? 0 : (o.respins === undefined ? 1 : o.respins), picks: [] })),
       replace: !!o.replace, rounds: o.rounds || SLOTS, pool: o.pool || 'current',
       round: 0, turnIdx: 0, spinNo: 0, squad: null, privateSquad: null, taken: [], seen: [], done: false, log: [],
     };
@@ -183,7 +188,12 @@
     const r = rng(st.seed + ':spin:' + st.spinNo++);
     let sq;
     const list = st.pool === 'all' ? SQUADS.map((s) => s.id) : CUR_SQ;
-    for (let tries = 0; tries < 30; tries++) { sq = list[Math.floor(r() * list.length)]; if (st.seen.indexOf(sq) < 0) break; }
+    // weaker rosters come up more often than the elite ones, so a stacked team has to be earned
+    const open = list.filter((q) => st.seen.indexOf(q) < 0);
+    const pool = open.length ? open : list;
+    const w = pool.map(spinWeight), tot = w.reduce((x, y) => x + y, 0);
+    let x = r() * tot; sq = pool[pool.length - 1];
+    for (let i = 0; i < pool.length; i++) { x -= w[i]; if (x <= 0) { sq = pool[i]; break; } }
     st.seen.push(sq);
     return sq;
   }
@@ -271,7 +281,7 @@
   }
 
   // ---------- game simulation ----------
-  const SIM = { TD: 0.2, TDK: 0.035, FG: 0.15, HOME: 1.5, POSS: 11, OPP: 1.5 };
+  const SIM = { TD: 0.2, TDK: 0.055, FG: 0.15, HOME: 1.5, POSS: 11, OPP: 3, SPINW: 0.18, POK: 0.6 };
   // playoff CPU teams play above their rating, round by round: the ring should be almost impossible
   const PO_BOOST = { 'Wild Card': 4, 'Divisional': 8, 'Conference Championship': 12, 'Super Bowl': 17 };
   function drive(r, off, def, k) {
@@ -427,7 +437,7 @@
 
     const game = (hi, ai, week, label, neutral, prime) => {
       if (pending) return null;
-      const boost = label ? PO_BOOST[label] || 0 : 0;
+      const boost = label ? (PO_BOOST[label] || 0) * SIM.POK : 0;
       const pump = (t) => (t.user === undefined && boost ? Object.assign({}, t, { prof: Object.assign({}, t.prof, { off: t.prof.off + boost, def: t.prof.def + boost, ovr: t.prof.ovr + boost }) }) : t);
       const h = pump(teams[hi]), a = pump(teams[ai]);
       const userSide = h.user !== undefined && a.user === undefined ? 0 : a.user !== undefined && h.user === undefined ? 1 : -1;

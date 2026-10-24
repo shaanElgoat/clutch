@@ -28,7 +28,7 @@ function goTab(id) {
 }
 function tabbar(active) {
   App.tab = active;
-  const dot = { play: !Store.data.daily[todayKey()], games: triviaLeft() > 0, club: freePackReady() || claimable() > 0 };
+  const dot = { games: triviaLeft() > 0, club: freePackReady() || claimable() > 0 };
   const bar = document.createElement('nav');
   bar.className = 'tabbar';
   bar.innerHTML = TABS.map(([id, ic, lbl]) => `<button class="${id === active ? 'on' : ''}" data-tab="${id}">${ico(ic, 22)}<span>${lbl}</span>${dot[id] ? '<i class="badge-dot"></i>' : ''}</button>`).join('');
@@ -54,38 +54,28 @@ const coinsChip = () => `<span class="coins">${ico('coin', 18)}<b data-coins>${S
 const greet = () => { const h = new Date().getHours(); return h < 5 ? 'Late night' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; };
 
 // ================= PLAY TAB =================
+// one tidy list row: icon, title, subtitle, a small right-hand meta
+const lrow = (o) => `<button class="lrow" ${o.attr || ''}><div class="mc-ic ${o.col}">${ico(o.ic, 20)}</div><div class="grow"><b>${o.t}</b><small>${o.sub}</small></div>${o.meta ? `<span class="lmeta ${o.hot ? 'hot' : ''}">${o.meta}</span>` : ''}${ico('chevron', 16)}</button>`;
+
 function Home() {
   if (typeof Net !== 'undefined' && Net.peer) Net.leave();
   App.g = null;
-  const d = Store.data, s = d.stats;
+  const d = Store.data, s = d.stats, today = d.daily[todayKey()];
   const el = go(`
     <div class="home-head">${levelChip()}<span class="grow"></span>${coinsChip()}</div>
-    <div class="hello"><small>${greet()}${myName() !== 'You' ? ', ' + esc(myName()) : ''}</small><h1>Ready to go <span>perfect</span>?</h1></div>
-
-    ${d.news26 ? `<div class="news"><div class="nw-ic">${ico('sparkle', 20)}</div><div class="grow"><b>The 2026 season is live</b><small>New rosters, 10 new head coaches and rookies like Mendoza and Love. Last year's players are now '25 pack cards.</small></div><button class="icon-btn" id="nwx">${ico('x', 16)}</button></div>` : ''}
 
     ${continueStrip(['season', 'daily', 'challenge', 'party', 'duel', 'cap', 'gameday', 'drill', 'kick', 'hl'])}
 
-    <button class="feature" data-act="season"><div class="ft-glow"></div><span class="tag">${ico('star', 14)} Main event · 2026</span><h3>Season</h3><p>Spin a team, draft 12 from its 2026 roster, chase 17-0 and the ring.</p><span class="go">${Runs.get('season') ? 'Continue' : 'Play'} ${ico('chevron', 16)}</span><div class="art">${helmet('#ffffff', '#ffc531')}</div></button>
+    <button class="feature" data-act="season"><div class="ft-glow"></div><span class="tag">${ico('star', 14)} 2026 season</span><h3>Season</h3><p>Spin a team, draft 12, chase 17-0 and the ring.</p><span class="go">${Runs.get('season') ? 'Continue' : 'Play'} ${ico('chevron', 16)}</span><div class="art">${helmet('#ffffff', '#ffc531')}</div></button>
 
+    <div class="mini-stats"><div><b>${s.played}</b><small>Seasons</small></div><div><b>${s.champs}</b><small>Rings</small></div><div><b>${s.clutchW}/${s.clutchT}</b><small>Clutch</small></div><div><b>${s.best ? esc(s.best.rec) : '–'}</b><small>Best</small></div></div>
 
-    <div class="sec-row"><h3>Your seasons</h3></div>
-    <div class="stat-grid">
-      <div class="stat"><div class="si blue">${ico('ball', 18)}</div><b>${s.played}</b><small>Played</small></div>
-      <div class="stat"><div class="si sun">${ico('trophy', 18)}</div><b>${s.champs}</b><small>Rings</small></div>
-      <div class="stat"><div class="si pink">${ico('timer', 18)}</div><b>${s.clutchW}/${s.clutchT}</b><small>Clutch</small></div>
-    </div>
-    ${s.best ? `<div class="hero-card row" style="margin-top:10px"><div class="intro-ic sm">${ico('star', 20)}</div><div class="grow"><b>Best season</b><div class="mute" style="font-weight:700;font-size:13px">${esc(s.best.title)} · ${esc(s.best.rec)}</div></div></div>` : ''}
-
-    <div class="sec-row"><h3>More ways to play a season</h3></div>
-    <div class="bento">
-      <button class="mode-card" data-act="daily"><div class="mc-ic sun">${ico('calendar', 22)}</div><b>Daily Draft</b><small>${d.daily[todayKey()] ? esc(d.daily[todayKey()].title) : 'Same spins worldwide'}</small>${d.daily[todayKey()] ? `<span class="mc-tag">${ico('check', 12)}</span>` : '<span class="mc-tag hot">New</span>'}</button>
-      <button class="mode-card" data-act="friends"><div class="mc-ic ink">${ico('users', 22)}</div><b>With friends</b><small>Online rooms or pass &amp; play</small></button>
-    </div>
+    <div class="group-title">More seasons</div>
+    <div class="group">
+      ${lrow({ attr: 'data-act="daily"', col: 'sun', ic: 'calendar', t: 'Daily Draft', sub: today ? esc(today.title + ' · ' + today.rec) : 'Same spins for everyone today', meta: today ? 'Done' : 'New', hot: !today })}
+      ${lrow({ attr: 'data-act="friends"', col: 'ink', ic: 'users', t: 'Play with friends', sub: 'Online room or pass &amp; play' })}
     </div>`, 'has-tabs');
   tabbar('play');
-  const nx = $('#nwx', el);
-  if (nx) nx.addEventListener('click', () => { d.news26 = false; Store.save(); nx.closest('.news').remove(); });
   if (!d.seenHelp) { d.seenHelp = true; Store.save(); later(Help, 500); }
   return el;
 }
@@ -96,28 +86,40 @@ function GamesTab() {
   const s = Store.data.stats, streak = dailyStreak();
   const g = puzzle('grid'), w = puzzle('who'), dr = puzzle('drill');
   const trivia = [
-    { act: 'grid', icon: 'grid', col: 'blue', title: 'The Grid', blurb: 'Name a player who fits the row and the column.', done: !!(g && g.done), res: g ? g.cells.filter(Boolean).length + '/9 solved' : '' },
-    { act: 'who', icon: 'question', col: 'pink', title: "Who's That?", blurb: 'Guess the mystery player from the clues.', done: !!(w && w.done), res: w && w.done ? (w.win ? 'Solved in ' + w.guesses.length : 'Missed it') : '' },
-    { act: 'drill', icon: 'timer', col: 'violet', title: '2-Minute Drill', blurb: 'Down late, ball in your hands. Win it.', done: !!dr, res: dr ? dr.title : '' },
+    { act: 'grid', ic: 'grid', col: 'blue', t: 'The Grid', blurb: 'Fit a player to the row and column', done: !!(g && g.done), res: g ? g.cells.filter(Boolean).length + '/9 solved' : '' },
+    { act: 'who', ic: 'question', col: 'pink', t: "Who's That?", blurb: 'Guess the mystery player', done: !!(w && w.done), res: w && w.done ? (w.win ? 'Solved in ' + w.guesses.length : 'Missed it') : '' },
+    { act: 'drill', ic: 'timer', col: 'violet', t: '2-Minute Drill', blurb: 'Down late. Win it.', done: !!dr, res: dr ? dr.title : '' },
   ];
   const n = trivia.filter((x) => x.done).length;
+  const res = (k, txt) => (Runs.get(k) ? { meta: 'Resume', hot: true } : { meta: txt });
   go(`
     <div class="topbar"><h2 class="d grow">Games</h2>${coinsChip()}</div>
-    <div class="daily-hero"><div class="grow"><small>Daily #${dailyNumber(todayKey())} · ${ico('flame', 12)} ${streak} day streak</small><b>${n === 3 ? 'All done. See you tomorrow!' : `${3 - n} daily puzzle${3 - n > 1 ? 's' : ''} left`}</b><span>New puzzles every midnight</span></div><div class="ring big" style="--p:${(n / 3) * 100}%"><b>${n}/3</b></div></div>
-    <div class="dl-list">${trivia.map((x) => `<button class="dl-card ${x.done ? 'done' : ''}" data-act="${x.act}"><div class="tc-ic ${x.col}">${ico(x.icon, 24)}</div><div class="grow"><b>${x.title}</b><small>${esc(x.res || x.blurb)}</small></div>${x.done ? `<span class="dl-ok">${ico('check', 16)}</span>` : '<span class="dl-go">Play</span>'}</button>`).join('')}</div>
 
-    <div class="sec-row"><h3>Head to head</h3></div>
-    <div class="bento">
-      <button class="mode-card big duel" data-act="duel"><div class="mc-ic violet">${ico('users', 24)}</div><b>Draft Duel</b><small>Steal-draft vs a rival GM, then a best-of-3, live</small>${Runs.get('duel') ? '<span class="mc-tag hot">Resume</span>' : `<span class="mc-tag">${s.duelW || 0} won</span>`}</button>
-      <button class="mode-card" data-act="cap"><div class="mc-ic sun">${ico('coin', 22)}</div><b>Salary Cap</b><small>$${CAP}M to build a champ</small>${Runs.get('cap') ? '<span class="mc-tag hot">Resume</span>' : `<span class="mc-tag">${s.capBest || 0}/4</span>`}</button>
-      <button class="mode-card" data-act="gameday"><div class="mc-ic mint">${ico('clipboard', 22)}</div><b>Gameday</b><small>Call every play</small>${Runs.get('gameday') ? '<span class="mc-tag hot">Resume</span>' : `<span class="mc-tag">${s.gdWins}-${s.gdPlayed - s.gdWins}</span>`}</button>
+    <div class="group-title row-title"><span>Daily puzzles</span><span class="mute">${ico('flame', 12)} ${streak} day streak · ${n}/3</span></div>
+    <div class="group">${trivia.map((x) => lrow({ attr: `data-act="${x.act}"`, col: x.col, ic: x.ic, t: x.t, sub: esc(x.res || x.blurb), meta: x.done ? ico('check', 14) : 'Play', hot: !x.done })).join('')}</div>
+
+    <div class="group-title">Head to head</div>
+    <div class="group">
+      ${lrow(Object.assign({ attr: 'data-act="duel"', col: 'violet', ic: 'users', t: 'Draft Duel', sub: 'Out-draft a rival, then best of 3' }, res('duel', (s.duelW || 0) + ' won')))}
+      ${lrow(Object.assign({ attr: 'data-act="cap"', col: 'sun', ic: 'coin', t: 'Salary Cap', sub: `$${CAP}M to build a champion` }, res('cap', (s.capBest || 0) + '/4')))}
+      ${lrow(Object.assign({ attr: 'data-act="gameday"', col: 'mint', ic: 'clipboard', t: 'Gameday', sub: 'Call every play yourself' }, res('gameday', s.gdWins + '-' + (s.gdPlayed - s.gdWins))))}
     </div>
-    <div class="sec-row"><h3>Arcade</h3></div>
-    <div class="bento">
-      <button class="mode-card" data-act="kick"><div class="mc-ic orange">${ico('goalpost', 22)}</div><b>Kick It</b><small>Arcade field goals</small>${Runs.get('kick') ? '<span class="mc-tag hot">Resume</span>' : `<span class="mc-tag">Best ${s.kickBest}</span>`}</button>
-      <button class="mode-card" data-act="hl"><div class="mc-ic blue">${ico('scale', 22)}</div><b>Who's Better?</b><small>Higher or lower</small>${Runs.get('hl') ? '<span class="mc-tag hot">Resume</span>' : `<span class="mc-tag">Best ${s.hlBest}</span>`}</button>
+
+    <div class="group-title">Arcade</div>
+    <div class="group">
+      ${lrow(Object.assign({ attr: 'data-act="hl"', col: 'blue', ic: 'scale', t: "Who's Better?", sub: 'Career stats, head to head' }, res('hl', 'Best ' + s.hlBest)))}
+      ${lrow(Object.assign({ attr: 'data-act="kick"', col: 'orange', ic: 'goalpost', t: 'Kick It', sub: 'Aim, power, wind' }, res('kick', 'Best ' + s.kickBest)))}
     </div>`, 'has-tabs');
   tabbar('games');
+}
+
+// shown once, the first time the app opens after the binder reset
+function resetNotice() {
+  modal(`<div class="center"><div class="intro-ic" style="margin:0 auto 10px;background:var(--brand)">${ico('cards', 28)}</div>
+    <h2 class="d">Your binder was reset</h2>
+    <p>Due to an update, every player's binder has been reset. From now on, cards only come from packs you buy with coins, and Wildcards use your new binder.</p>
+    <p class="mute" style="font-weight:600;font-size:13px">Your coins, levels, trophies and stats are all still here.</p></div>
+    <button class="btn primary" data-close style="margin-top:12px">Got it</button>`, null, 'sheet');
 }
 
 function Help() {
@@ -164,7 +166,7 @@ function SeasonSetup(mode) {
   if (tc) tc.addEventListener('click', () => { clock = !clock; d.shotClock = clock; Store.save(); tc.classList.toggle('on', clock); Sfx.tap(); });
   $('#go', el).addEventListener('click', () => {
     const seed = mode === 'daily' ? 'daily:' + todayKey() : ch ? ch.s : 'q:' + rid();
-    openDraft({ mode, run: SEASON_RUN[mode], ch: ch || undefined, seed, blind, shotClock: clock ? 8 : 0, respins: 2, wildcard: mode === 'quick', managers: [{ name: myName() }], title: title + ' draft', onDone: (st) => soloSeason(mode, st, blind) });
+    openDraft({ mode, run: SEASON_RUN[mode], ch: ch || undefined, seed, blind, shotClock: clock ? 8 : 0, respins: 1, wildcard: mode === 'quick', managers: [{ name: myName() }], title: title + ' draft', onDone: (st) => soloSeason(mode, st, blind) });
   });
 }
 const SEASON_RUN = { quick: 'season', daily: 'daily', challenge: 'challenge' };
@@ -473,6 +475,9 @@ document.addEventListener('click', (e) => {
   if (b && ACTIONS[b.dataset.act]) { Sfx.ensure(); Sfx.tap(); ACTIONS[b.dataset.act](b); }
 });
 function boot() {
+  // 1-second intro: the logo pops, the bar fills, then it fades away
+  const sp = document.getElementById('splash');
+  if (sp) setTimeout(() => { sp.classList.add('out'); setTimeout(() => sp.remove(), 350); }, 1000);
   Store.load();
   applyTheme();
   document.body.insertAdjacentHTML('afterbegin', DEFS + '<div class="blobs"><i></i><i></i><i></i></div>');
@@ -490,6 +495,7 @@ function boot() {
   }
   if (q.get('room')) { App.pendingRoom = q.get('room').toUpperCase().slice(0, 5); history.replaceState(null, '', location.pathname); OnlineScreen(); return; }
   goTab('play');
+  if (Store.data.resetNotice) { Store.data.resetNotice = false; Store.save(); later(resetNotice, 1300); }
 }
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 boot();

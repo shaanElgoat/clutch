@@ -62,7 +62,6 @@ function draftUpdate() {
 function finishDraft() {
   const g = App.g; if (!g || g.finished) return;
   g.finished = true;
-  g.st.managers.forEach((m, i) => { if (localControl(g, i) || (g.online && i === g.me)) collect(m.xi); });
   g.cfg.onDone(g.st);
 }
 function draftRenderAll() { renderDraftTop(); renderTurn(); renderField(); renderSpinBox(); renderSquad(); }

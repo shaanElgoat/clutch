@@ -77,7 +77,7 @@ function GridGame(practiceSeed) {
     if (pid === null || !el.isConnected) return;
     st.left--;
     const fit = gridFit(pid, ti, ci);
-    if (fit) { st.cells[k] = fit.id; Sfx.good(); buzz(15); collect([fit.id]); } else { Sfx.bad(); buzz([40, 30, 40]); toast(`Nope: ${TE.PLAYERS[pid].name} doesn't fit`); shake(btn); }
+    if (fit) { st.cells[k] = fit.id; Sfx.good(); buzz(15); } else { Sfx.bad(); buzz([40, 30, 40]); toast(`Nope: ${TE.PLAYERS[pid].name} doesn't fit`); shake(btn); }
     if (st.left <= 0 || st.cells.every(Boolean)) finish();
     save(); draw();
   };
@@ -148,7 +148,7 @@ function MysteryGame(practiceSeed) {
     if (pid === null || !el.isConnected) return;
     st.guesses.push(pid);
     const c = compareGuess(pid, tid);
-    if (c.win) { st.done = true; st.win = true; Sfx.trophy(); confetti(); addXP(40 + (8 - st.guesses.length) * 15); if (st.guesses.length <= 4) unlock('mystery'); collect([tid]); }
+    if (c.win) { st.done = true; st.win = true; Sfx.trophy(); confetti(); addXP(40 + (8 - st.guesses.length) * 15); if (st.guesses.length <= 4) unlock('mystery'); }
     else if (st.guesses.length >= 8) { st.done = true; Sfx.groan(); addXP(15); }
     else Sfx.tap();
     save(); draw();
@@ -360,19 +360,21 @@ function KickIt(resume) {
 // =====================================================================
 // CARD PACKS
 // =====================================================================
+// the binder only fills from packs bought with coins; the daily freebie is coins, not cards
+const DAILY_COINS = 150;
 function freePackReady() { return Store.data.freePack !== dayKey(); }
 function Packs() {
   App.g = null;
   const d = Store.data;
   const el = go(`
     ${clubSeg('packs')}
-    ${freePackReady() ? `<button class="free-pack" id="free"><div class="fp-ic">${ico('gift', 28)}</div><div class="grow"><b>Free daily pack</b><small>3 cards, on the house. Come back tomorrow for another.</small></div><span class="chip on">Open</span></button>` : ''}
+    ${freePackReady() ? `<button class="free-pack" id="free"><div class="fp-ic">${ico('coin', 28)}</div><div class="grow"><b>Daily coins: +${DAILY_COINS}</b><small>Free coins every day. Spend them on packs.</small></div><span class="chip on">Claim</span></button>` : ''}
     <div class="packs">${PACKS.map((p, i) => `<div class="packcard"><div class="pack-art" style="background:${p.grad}"><div class="pa-shine"></div><span>CLUTCH</span><b>${p.name}</b></div>
       <div class="pk-info"><b>${p.name} pack</b><small>${p.blurb}</small><button class="btn ${d.coins >= p.cost ? 'primary' : ''} small" data-pack="${i}" ${d.coins >= p.cost ? '' : 'disabled'}>${ico('coin', 16)} ${p.cost.toLocaleString()}</button></div></div>`).join('')}</div>
-    <div class="hero-card" style="margin-top:14px"><b>Why collect?</b><div class="mute" style="font-weight:600;font-size:13px;line-height:1.5;margin-top:4px">Your cards build <b>My Club</b> for the Rivals ladder. Duplicates level a card up to ★★★, +1 rating each. Play any card as a <b>Wildcard</b> in drafts. Complete team sets for coin rewards.</div></div>`, 'has-tabs');
+    <p class="mute center" style="font-weight:600;font-size:12.5px;margin:14px 8px 0;line-height:1.5">Packs are the only way to get cards. Your cards build My Club, level up with duplicates, and can be played as Wildcards.</p>`, 'has-tabs');
   tabbar('club');
   const fp = $('#free', el);
-  if (fp) fp.addEventListener('click', () => { d.freePack = dayKey(); Store.save(); PackOpen({ id: 'free', name: 'Daily', n: 3, min: 0, grad: 'linear-gradient(150deg,#14b885,#2f6bff)' }); });
+  if (fp) fp.addEventListener('click', () => { d.freePack = dayKey(); d.coins += DAILY_COINS; Store.save(); Sfx.achievement(); toast(`+${DAILY_COINS} coins`); Packs(); });
   $$('[data-pack]', el).forEach((b) => b.addEventListener('click', () => {
     const p = PACKS[+b.dataset.pack];
     if (d.coins < p.cost) return;

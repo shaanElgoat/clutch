@@ -810,3 +810,54 @@ html, body { overflow-x: clip; }
 .cont .dl-go { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border-radius: 50%; }
 .resume-head { display: flex; align-items: center; gap: 12px; }
 .resume-head .mc-ic { width: 44px; height: 44px; }
+
+/* ---------- 1-second intro ---------- */
+#splash { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; background: radial-gradient(120% 80% at 50% 30%, #eef2ff, #f5f6fa 60%); transition: opacity .3s ease, visibility .3s; animation: spAuto 0s linear 1.6s forwards; }
+#splash.out { opacity: 0; visibility: hidden; }
+@keyframes spAuto { to { opacity: 0; visibility: hidden; } }
+.sp-in { display: flex; flex-direction: column; align-items: center; gap: 22px; }
+.sp-logo { width: 116px; height: 116px; border-radius: 30px; box-shadow: 0 22px 44px -14px rgba(52,102,255,.6); animation: spPop .55s cubic-bezier(.34,1.56,.64,1) both; }
+@keyframes spPop { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
+.sp-bar { width: 132px; height: 6px; border-radius: 6px; background: #dfe4f3; overflow: hidden; animation: spFade .25s ease .2s both; }
+.sp-bar i { display: block; height: 100%; width: 0; border-radius: 6px; background: var(--brand); animation: spLoad .75s cubic-bezier(.4,0,.2,1) .25s forwards; }
+@keyframes spLoad { to { width: 100%; } }
+@keyframes spFade { from { opacity: 0; transform: translateY(6px); } }
+
+/* ---------- tidy grouped lists ---------- */
+.group-title { margin: 22px 4px 8px; font-size: 13px; font-weight: 800; color: var(--mute); letter-spacing: .02em; }
+.group-title.row-title { display: flex; justify-content: space-between; align-items: center; }
+.group-title .mute { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; }
+.group { border-radius: 20px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow-sm); overflow: hidden; }
+.lrow { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 12px 14px; color: var(--mute); transition: background .15s; }
+.lrow + .lrow { border-top: 1px solid var(--line); }
+.lrow:active { background: var(--bg); }
+.lrow .mc-ic { width: 38px; height: 38px; border-radius: 12px; }
+.lrow .grow { min-width: 0; }
+.lrow b { display: block; font-size: 15.5px; font-weight: 800; color: var(--ink); }
+.lrow small { display: block; font-size: 12.5px; font-weight: 600; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lmeta { flex: none; font-size: 12px; font-weight: 800; color: var(--ink2); background: var(--bg); padding: 4px 9px; border-radius: 99px; display: inline-flex; align-items: center; }
+.lmeta.hot { color: #fff; background: var(--brand); }
+.mini-stats { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 12px; padding: 12px 6px; border-radius: 18px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow-sm); }
+.mini-stats div { text-align: center; min-width: 0; }
+.mini-stats div + div { border-left: 1px solid var(--line); }
+.mini-stats b { display: block; font-size: 17px; font-weight: 800; letter-spacing: -.03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; }
+.mini-stats small { font-size: 11px; font-weight: 700; color: var(--mute); }
+.home-head + .sec-row, .home-head + .feature { margin-top: 14px; }
+
+/* ---------- Who's Better stat cards ---------- */
+.hl-cat { text-align: center; font-size: 11.5px; font-weight: 800; color: var(--blue); text-transform: uppercase; letter-spacing: .08em; }
+.opt.sc { display: flex; flex-direction: column; align-items: stretch; border-radius: 22px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); overflow: hidden; padding: 0 0 12px; text-align: center; min-width: 0; }
+.sc-top { position: relative; height: 92px; display: grid; place-items: center; }
+.sc-helm { width: 78px; filter: drop-shadow(0 8px 14px rgba(0,0,0,.3)); }
+.sc-pos { position: absolute; top: 8px; left: 8px; font-size: 11px; font-weight: 800; color: #fff; background: rgba(0,0,0,.28); padding: 2px 7px; border-radius: 7px; }
+.sc-name { margin: 10px 8px 0; font-size: 15px; font-weight: 800; line-height: 1.15; min-height: 2.3em; display: flex; align-items: center; justify-content: center; }
+.sc-team { font-size: 11.5px; font-weight: 700; color: var(--mute); }
+.sc-val { margin-top: 8px; }
+.sc-val b { display: block; font-size: 26px; font-weight: 800; letter-spacing: -.04em; line-height: 1.1; }
+.sc-val b.q { color: var(--line); color: #c9cfe0; }
+.sc-val small { font-size: 11px; font-weight: 700; color: var(--mute); }
+.opt.sc.right { box-shadow: 0 0 0 4px var(--mint), 0 14px 34px -6px rgba(16,185,129,.5); }
+.opt.sc.right .sc-val b { color: var(--mint); }
+.opt.sc.wrong { box-shadow: 0 0 0 4px var(--red), 0 14px 34px -6px rgba(244,63,94,.45); animation: shake .4s; }
+.opt.sc.dim { opacity: .7; }
+.hl-pair .hl-vs { top: 46px; }

@@ -28,10 +28,10 @@ function GamedayStart() {
   introScreen({
     title: 'Gameday', icon: 'clipboard', bg: 'linear-gradient(160deg,#e7fbf2,#c6f1de)',
     headline: 'You call every play', sub: 'Draft a team, pick an opponent, then out-think their defense snap by snap.',
-    steps: [['Draft 12', 'A quick draft with 3 re-spins.'], ['Pick your opponent', 'Rookie, Pro or Legend difficulty.'], ['Call it', 'Run, quick pass, deep shot or play-action. Every play shows the defense they were in, so read the tendencies.'], ['Defend', 'Pick a coverage for each of their drives.']],
+    steps: [['Draft 12', 'A quick draft with 1 re-spin.'], ['Pick your opponent', 'Rookie, Pro or Legend difficulty.'], ['Call it', 'Run, quick pass, deep shot or play-action. Every play shows the defense they were in, so read the tendencies.'], ['Defend', 'Pick a coverage for each of their drives.']],
     buttons: [
       ...(last ? [{ label: 'Play with my last team', cls: 'primary', fn: () => GamedayOpp(last) }] : []),
-      { label: last ? 'Draft a new team' : 'Draft my team', cls: last ? '' : 'primary', fn: () => openDraft({ mode: 'gameday', run: 'gameday', seed: 'gd:' + rid(), respins: 3, wildcard: true, managers: [{ name: myName() }], title: 'Gameday draft', onDone: gamedayDrafted }) },
+      { label: last ? 'Draft a new team' : 'Draft my team', cls: last ? '' : 'primary', fn: () => openDraft({ mode: 'gameday', run: 'gameday', seed: 'gd:' + rid(), respins: 1, wildcard: true, managers: [{ name: myName() }], title: 'Gameday draft', onDone: gamedayDrafted }) },
     ],
   });
 }
@@ -205,37 +205,59 @@ function GamedayGame(xi, opp, diff, opts) {
 // =====================================================================
 // WHO'S BETTER?
 // =====================================================================
+// Who's Better?: a new real stat every round (yards, sacks, rings, games...). Pick who has more.
+const HL_LOOK = {};
+function hlFace(name, cat) {
+  if (!HL_LOOK[name]) {
+    const ps = TE.PLAYERS.filter((p) => p.name === name).sort((a, b) => b.r - a.r);
+    HL_LOOK[name] = ps.length ? { team: TE.DATA.TEAMS[ps[0].team], pos: ps[0].pos } : null;
+  }
+  const f = HL_LOOK[name];
+  return { c1: f ? f.team.c1 : '#0f1631', c2: f ? f.team.c2 : '#ffc531', team: f ? f.team.short : 'NFL', pos: f ? f.pos : cat.pos };
+}
+const hlFmt = (v) => (v % 1 ? v.toFixed(1) : v.toLocaleString());
 function WhosBetter(resumeStreak) {
-  const s = { streak: typeof resumeStreak === 'number' ? resumeStreak : 0, pair: null, busy: false, timer: null, prevBest: Store.data.stats.hlBest };
+  const s = { streak: typeof resumeStreak === 'number' ? resumeStreak : 0, q: null, busy: false, timer: null, prevBest: Store.data.stats.hlBest, lastCat: null };
   const el = go(`
     <div class="hl-head"><button class="icon-btn" data-act="home">${ICON.back}</button>
       <div class="streak" id="stk">${s.streak}<small>STREAK</small></div>
-      <div class="pill">BEST <b>${Store.data.stats.hlBest}</b></div></div>
-    <div class="hl-body"><div class="hl-q d" style="font-size:22px">Who's rated higher?</div>
+      <div class="pill">Best <b>${Store.data.stats.hlBest}</b></div></div>
+    <div class="hl-body"><div class="hl-cat" id="hcat"></div><div class="hl-q d" id="hq"></div>
     <div class="hl-pair" id="pair"></div>
     <div class="timer"><i id="tbar"></i></div>
-    <div class="hl-sub" id="hsub">Tap the better player · ratings at their peak with that team</div>
+    <div class="hl-sub" id="hsub">Real career numbers, regular season</div>
     <div id="over"></div></div>`);
+  // pairs get closer together as the streak grows
   const pick = () => {
-    const r = Math.random;
-    const maxGap = Math.max(1, 12 - Math.floor(s.streak / 2));
-    for (let k = 0; k < 400; k++) {
-      const a = TE.PLAYERS[Math.floor(r() * TE.PLAYERS.length)], b = TE.PLAYERS[Math.floor(r() * TE.PLAYERS.length)];
-      if (a.name === b.name || a.r === b.r) continue;
-      if (Math.abs(a.r - b.r) > maxGap) continue;
-      if (s.streak >= 6 && a.pos !== b.pos && k < 300) continue;
-      return [a.id, b.id];
+    const cats = STAT_CATS.filter((c) => c.id !== s.lastCat);
+    const cat = cats[Math.floor(Math.random() * cats.length)];
+    s.lastCat = cat.id;
+    const close = Math.max(0.06, 0.6 - s.streak * 0.035);
+    for (let k = 0; k < 300; k++) {
+      const a = cat.list[Math.floor(Math.random() * cat.list.length)], b = cat.list[Math.floor(Math.random() * cat.list.length)];
+      if (a.name === b.name || a.v === b.v) continue;
+      const gap = Math.abs(a.v - b.v) / Math.max(a.v, b.v);
+      if (gap > close + 0.25 || (s.streak >= 4 && gap > close)) continue;
+      return { cat, p: [a, b] };
     }
-    return [0, 1];
+    const sorted = cat.list.slice().sort((x, y) => y.v - x.v);
+    return { cat, p: [sorted[0], sorted[sorted.length - 1]] };
   };
   const draw = (reveal, chosen) => {
-    const [a, b] = s.pair, ra = TE.PLAYERS[a].r, rb = TE.PLAYERS[b].r;
-    const right = ra > rb ? 0 : 1;
-    $('#pair', el).innerHTML = [a, b].map((pid, i) => `<button class="opt ${reveal ? (i === right ? 'right' : i === chosen ? 'wrong' : '') : ''}" data-i="${i}">${pcard(pid, { hideRating: !reveal, big: true })}</button>`).join('') + '<div class="hl-vs">VS</div>';
+    const { cat, p } = s.q, right = p[0].v > p[1].v ? 0 : 1;
+    $('#hcat', el).textContent = cat.unit;
+    $('#hq', el).textContent = cat.q;
+    $('#pair', el).innerHTML = p.map((x, i) => {
+      const f = hlFace(x.name, cat);
+      return `<button class="opt sc ${reveal ? (i === right ? 'right' : i === chosen ? 'wrong' : 'dim') : ''}" data-i="${i}">
+        <div class="sc-top" style="background:linear-gradient(150deg,${f.c1},${f.c1}cc)"><div class="sc-helm">${helmet(f.c1, f.c2)}</div><span class="sc-pos">${f.pos}</span></div>
+        <div class="sc-name">${esc(x.name)}</div><div class="sc-team">${esc(f.team)}</div>
+        <div class="sc-val">${reveal ? `<b>${hlFmt(x.v)}</b><small>${cat.unit}</small>` : '<b class="q">?</b>'}</div></button>`;
+    }).join('') + '<div class="hl-vs">VS</div>';
     if (!reveal) $$('.opt', el).forEach((o) => o.addEventListener('click', () => answer(+o.dataset.i)));
   };
   const next = () => {
-    s.pair = pick(); s.busy = false;
+    s.q = pick(); s.busy = false;
     draw(false);
     startTimer();
   };
@@ -254,14 +276,14 @@ function WhosBetter(resumeStreak) {
   const answer = (i) => {
     if (s.busy) return; s.busy = true;
     cancelAnimationFrame(s.timer);
-    const [a, b] = s.pair, right = TE.PLAYERS[a].r > TE.PLAYERS[b].r ? 0 : 1;
+    const right = s.q.p[0].v > s.q.p[1].v ? 0 : 1;
     draw(true, i);
     if (i === right) {
       s.streak++; Sfx.good(); buzz(15);
       if (s.streak > Store.data.stats.hlBest) Store.data.stats.hlBest = s.streak;
       Runs.set('hl', { streak: s.streak });
       const st = $('#stk', el); st.innerHTML = `${s.streak}<small>STREAK</small>`;
-      setTimeout(() => { if (el.isConnected) next(); }, 1000);
+      setTimeout(() => { if (el.isConnected) next(); }, 1300);
     } else {
       Sfx.bad(); buzz([60, 40, 60]);
       Runs.clear('hl');
@@ -272,9 +294,9 @@ function WhosBetter(resumeStreak) {
       addXP(s.streak * 5);
       $('#hsub', el).textContent = i < 0 ? "Time's up!" : 'Wrong call!';
       $('#over', el).innerHTML = `<div class="outcome loss" style="margin-top:14px"><h2>${s.streak}</h2><p>${s.streak > best ? 'New best!' : 'Best: ' + Math.max(best, s.streak)}</p></div>
-        <div class="actions"><button class="btn primary" id="re">Play again</button><div class="two"><button class="btn" id="sh">Share</button><button class="btn" data-act="home">Home</button></div></div>`;
-      $('#re', el).addEventListener('click', WhosBetter);
-      $('#sh', el).addEventListener('click', () => shareOut(`CLUTCH · Who's Better? 🧠\nStreak: ${s.streak} 🔥\nThink you know football?`));
+        <div class="actions"><button class="btn primary" id="re">Play again</button><div class="two"><button class="btn" id="sh">Share</button><button class="btn" data-act="home">Done</button></div></div>`;
+      $('#re', el).addEventListener('click', () => WhosBetter());
+      $('#sh', el).addEventListener('click', () => shareOut(`CLUTCH · Who's Better? 🧠\nStreak: ${s.streak} 🔥\nCareer yards, sacks, rings... think you know football?`));
     }
   };
   next();

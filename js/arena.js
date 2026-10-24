@@ -92,8 +92,8 @@ function DuelEnd(d) {
 const CAP = 170;
 const capPrice = (r) => Math.max(1, Math.round(1.6 * Math.pow(1.13, r - 70)));
 const CAP_ROUNDS = [
-  { label: 'Wild Card', q: 0.35, boost: 0 }, { label: 'Divisional', q: 0.6, boost: 1.5 },
-  { label: 'Conference Championship', q: 0.82, boost: 3.5 }, { label: 'Super Bowl', q: 0.96, boost: 6 },
+  { label: 'Wild Card', q: 0.35, boost: -1 }, { label: 'Divisional', q: 0.6, boost: 0 },
+  { label: 'Conference Championship', q: 0.82, boost: 1.5 }, { label: 'Super Bowl', q: 0.96, boost: 3 },
 ];
 function capOffers(c) {
   const slot = c.round, pos = TE.LINEUP[slot].pos;
@@ -110,9 +110,9 @@ function CapStart() {
   introScreen({
     title: 'Salary Cap', icon: 'coin', bg: 'linear-gradient(160deg,#fff4dc,#ffe3a6)',
     headline: `Build a champion for $${CAP}M`, sub: 'Every spot offers a star, a starter and a bargain. You cannot afford all the stars.',
-    steps: [['12 picks', 'Three offers per position. Stars cost a fortune, bargains keep you flexible.'], ['Spend smart', 'Teammates from the same team still add chemistry. Two re-rolls if you hate the offers.'], ['Playoff run', 'Four knockout games, live. Lose once and you are out.']],
+    steps: [['12 picks', 'Three offers per position. Stars cost a fortune, bargains keep you flexible.'], ['Spend smart', 'Teammates from the same team still add chemistry. One re-roll if you hate the offers.'], ['Playoff run', 'Four knockout games, live. Lose once and you are out.']],
     extra: `<div class="hero-card row" style="margin-top:12px"><div class="intro-ic sm">${ico('trophy', 22)}</div><div class="grow"><b>Best run</b><div class="mute" style="font-weight:800">${['No playoff wins yet', 'Won the Wild Card', 'Won the Divisional', 'Won the Conference', 'Super Bowl champion'][s.capBest || 0]}</div></div></div>`,
-    buttons: [{ label: `${ico('coin', 18)} Start building`, cls: 'primary', fn: () => CapBuild({ seed: 'cap:' + rid(), xi: new Array(TE.SLOTS).fill(null), spent: 0, round: 0, rerolls: 0, rerollsLeft: 2 }) }],
+    buttons: [{ label: `${ico('coin', 18)} Start building`, cls: 'primary', fn: () => CapBuild({ seed: 'cap:' + rid(), xi: new Array(TE.SLOTS).fill(null), spent: 0, round: 0, rerolls: 0, rerollsLeft: 1 }) }],
   });
 }
 function CapBuild(c) {
@@ -150,7 +150,6 @@ function capOpponent(c, k) {
 }
 function CapHub(c) {
   if (!c.xi.every((x) => x !== null)) return;
-  if (!c.collected) { collect(c.xi); c.collected = true; }
   if (c.done || c.wins >= 4) Runs.clear('cap'); else Runs.set('cap', { phase: 'hub', c });
   const prof = TE.teamProfile(c.xi);
   const next = c.done ? null : capOpponent(c, c.wins);

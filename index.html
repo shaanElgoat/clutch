@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <title>CLUTCH · Football Draft</title>
 <meta name="description" content="Spin an NFL team, draft from its 2026 roster, watch your season live and make the clutch call. Can you go perfect?">
-<meta name="theme-color" content="#3466ff">
+<meta name="theme-color" content="#ffffff">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -20,18 +20,20 @@
 <noscript><link rel="stylesheet" href="css/style.css"></noscript>
 <style>
 /* loading screen: inline so it shows before anything else downloads */
-:where(html) { background: #3466ff; } /* zero specificity: style.css takes over once it loads */
-#load { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; color: #fff; font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; background: radial-gradient(90% 60% at 50% 35%, #5b7cff 0%, #3466ff 45%, #2a2fa8 100%); transition: opacity .35s ease, visibility .35s; }
+:where(html) { background: #ffffff; } /* zero specificity: style.css takes over once it loads */
+#load { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; background: #ffffff; transition: opacity .35s ease, visibility .35s; }
 #load.out { opacity: 0; visibility: hidden; }
-#load .ld-glow { position: absolute; width: 340px; height: 340px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.28), transparent 65%); top: calc(50% - 250px); animation: ldPulse 1.8s ease-in-out infinite; }
-#load .ld-ball { width: 120px; height: 120px; position: relative; animation: ldPop .6s cubic-bezier(.34,1.56,.64,1) both, ldSpin 1.4s ease-in-out .6s infinite; filter: drop-shadow(0 18px 26px rgba(0,0,0,.35)); }
-#load .ld-word { margin-top: 18px; font-size: 44px; font-weight: 800; letter-spacing: -.04em; line-height: 1; animation: ldUp .5s ease .15s both; }
-#load .ld-sub { margin-top: 6px; font-size: 14px; font-weight: 700; opacity: .8; animation: ldUp .5s ease .25s both; }
-#load .ld-bar { margin-top: 34px; width: 210px; height: 8px; border-radius: 8px; background: rgba(255,255,255,.22); overflow: hidden; animation: ldUp .5s ease .35s both; }
-#load .ld-bar i { display: block; height: 100%; width: 0; border-radius: 8px; background: linear-gradient(90deg, #ffe08a, #ffbf1f); box-shadow: 0 0 14px rgba(255,200,60,.8); transition: width .25s ease; }
-#load .ld-pct { margin-top: 10px; font-size: 13px; font-weight: 800; opacity: .9; font-variant-numeric: tabular-nums; animation: ldUp .5s ease .35s both; }
-#load .ld-tip { position: absolute; bottom: calc(36px + env(safe-area-inset-bottom, 0px)); left: 24px; right: 24px; text-align: center; font-size: 13px; font-weight: 600; opacity: .85; line-height: 1.4; }
-@keyframes ldPop { 0% { transform: scale(.3) rotate(-30deg); opacity: 0; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
+/* the blue centre card holds the ball, the name and the loading bar; everything around it stays white */
+#load .ld-card { position: relative; width: min(300px, 78vw); padding: 34px 24px 26px; border-radius: 40px; color: #fff; display: flex; flex-direction: column; align-items: center; overflow: hidden; background: radial-gradient(90% 70% at 50% 25%, #5b7cff 0%, #3466ff 50%, #2a3bc4 100%); box-shadow: 0 7px 0 #2230a0, 0 30px 60px -18px rgba(52,102,255,.65); animation: ldPop .55s cubic-bezier(.34,1.56,.64,1) both; }
+#load .ld-glow { position: absolute; width: 260px; height: 260px; border-radius: 50%; top: -70px; background: radial-gradient(circle, rgba(255,255,255,.3), transparent 65%); animation: ldPulse 1.8s ease-in-out infinite; }
+#load .ld-ball { width: 104px; height: 104px; position: relative; animation: ldPop .6s cubic-bezier(.34,1.56,.64,1) .1s both, ldSpin 1.4s ease-in-out .7s infinite; filter: drop-shadow(0 14px 20px rgba(0,0,0,.35)); }
+#load .ld-word { position: relative; margin-top: 14px; font-size: 40px; font-weight: 800; letter-spacing: -.04em; line-height: 1; animation: ldUp .5s ease .2s both; }
+#load .ld-sub { position: relative; margin-top: 6px; font-size: 13.5px; font-weight: 700; opacity: .85; animation: ldUp .5s ease .3s both; }
+#load .ld-bar { position: relative; margin-top: 26px; width: 100%; height: 9px; border-radius: 9px; background: rgba(255,255,255,.22); overflow: hidden; animation: ldUp .5s ease .4s both; }
+#load .ld-bar i { display: block; height: 100%; width: 0; border-radius: 9px; background: linear-gradient(90deg, #ffe08a, #ffbf1f); box-shadow: 0 0 14px rgba(255,200,60,.8); transition: width .25s ease; }
+#load .ld-pct { position: relative; margin-top: 10px; font-size: 13px; font-weight: 800; opacity: .9; font-variant-numeric: tabular-nums; animation: ldUp .5s ease .4s both; }
+#load .ld-tip { position: absolute; bottom: calc(36px + env(safe-area-inset-bottom, 0px)); left: 24px; right: 24px; text-align: center; font-size: 13px; font-weight: 600; color: #6b7390; line-height: 1.4; }
+@keyframes ldPop { 0% { transform: scale(.3) rotate(-20deg); opacity: 0; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
 @keyframes ldSpin { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg) translateY(-6px); } }
 @keyframes ldUp { from { opacity: 0; transform: translateY(10px); } }
 @keyframes ldPulse { 0%, 100% { transform: scale(1); opacity: .8; } 50% { transform: scale(1.12); opacity: 1; } }
@@ -39,12 +41,14 @@
 </head>
 <body>
 <div id="load" aria-label="Loading CLUTCH">
+  <div class="ld-card">
   <div class="ld-glow"></div>
   <svg class="ld-ball" viewBox="0 0 120 120" aria-hidden="true"><ellipse cx="60" cy="60" rx="54" ry="34" transform="rotate(-35 60 60)" fill="#8a4b2a"/><ellipse cx="60" cy="60" rx="54" ry="34" transform="rotate(-35 60 60)" fill="none" stroke="#5c2e17" stroke-width="3"/><path d="M27 83 Q22 70 30 60 M93 37 Q98 50 90 60" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" transform="rotate(0 60 60)"/><g transform="rotate(-35 60 60)" stroke="#fff" stroke-width="4" stroke-linecap="round"><path d="M40 60 H80"/><path d="M46 53 V67 M54 53 V67 M62 53 V67 M70 53 V67"/></g></svg>
   <div class="ld-word">CLUTCH</div>
   <div class="ld-sub">Football Draft · 2026</div>
   <div class="ld-bar"><i id="ldFill"></i></div>
   <div class="ld-pct" id="ldPct">0%</div>
+  </div>
   <div class="ld-tip" id="ldTip"></div>
 </div>
 <script>

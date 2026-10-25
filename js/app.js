@@ -66,7 +66,7 @@ function Home() {
 
     ${continueStrip(['season', 'daily', 'challenge', 'party', 'duel', 'cap', 'gameday', 'drill', 'kick', 'hl'])}
 
-    <button class="feature" data-act="season"><div class="ft-glow"></div><span class="tag">${ico('star', 14)} 2026 season</span><h3>Season</h3><p>Spin a team, draft 12, chase 17-0 and the ring.</p><span class="go">${Runs.get('season') ? 'Continue' : 'Play'} ${ico('chevron', 16)}</span><div class="art">${helmet('#ffffff', '#ffc531')}</div></button>
+    <button class="feature" data-act="season"><div class="ft-glow"></div><span class="tag">${ico('star', 14)} 2026 season</span><h3>Season</h3><p>Spin a team, draft 12, chase 17-0 and the ring.</p><span class="go">${Runs.get('season') ? 'Continue' : 'Play'} ${ico('chevron', 16)}</span><div class="art">${helmet('#ffffff', '#ffc531')}</div><i class="fx fx1">${funShape('star', '#ffd75a')}</i><i class="fx fx2">${funShape('star', '#ffffff')}</i><i class="fx fx3">${funShape('ring', '#ff3f7d')}</i></button>
 
     <div class="mini-stats"><div><b>${s.played}</b><small>Seasons</small></div><div><b>${s.champs}</b><small>Rings</small></div><div><b>${s.clutchW}/${s.clutchT}</b><small>Clutch</small></div><div><b>${s.best ? esc(s.best.rec) : '–'}</b><small>Best</small></div></div>
 
@@ -477,7 +477,7 @@ document.addEventListener('click', (e) => {
 function boot() {
   Store.load();
   applyTheme();
-  document.body.insertAdjacentHTML('afterbegin', DEFS + '<div class="blobs"><i></i><i></i><i></i></div>');
+  document.body.insertAdjacentHTML('afterbegin', DEFS + '<div class="blobs"><i></i><i></i><i></i></div>' + funLayer());
   const h = location.hash, q = new URLSearchParams(location.search);
   if (h.startsWith('#c=')) {
     const ch = b64urlDecode(h.slice(3));

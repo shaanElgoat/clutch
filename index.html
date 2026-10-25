@@ -15,10 +15,12 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="css/style.css" media="print" onload="this.media='all';window.__cssOk=1">
+<noscript><link rel="stylesheet" href="css/style.css"></noscript>
 <style>
 /* loading screen: inline so it shows before anything else downloads */
+:where(html) { background: #3466ff; } /* zero specificity: style.css takes over once it loads */
 #load { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; color: #fff; font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; background: radial-gradient(90% 60% at 50% 35%, #5b7cff 0%, #3466ff 45%, #2a2fa8 100%); transition: opacity .35s ease, visibility .35s; }
 #load.out { opacity: 0; visibility: hidden; }
 #load .ld-glow { position: absolute; width: 340px; height: 340px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.28), transparent 65%); top: calc(50% - 250px); animation: ldPulse 1.8s ease-in-out infinite; }
@@ -57,7 +59,7 @@
     shown += (target - shown) * 0.25;
     if (target - shown < 0.6) shown = target;
     fill.style.width = shown + '%'; pct.textContent = Math.round(shown) + '%';
-    if (ready && shown >= 100) return finish();
+    if (ready && shown >= 100 && window.__cssOk) return finish();
     requestAnimationFrame(paint);
   }
   function finish() {
@@ -67,8 +69,9 @@
   }
   window.__ldTick = function () { loaded++; };
   window.__ldReady = function () { ready = true; };
+  if (document.querySelector('link[href="css/style.css"][media="all"]')) window.__cssOk = 1;
   requestAnimationFrame(paint);
-  setTimeout(function () { ready = true; finish(); }, 8000);
+  setTimeout(function () { ready = true; window.__cssOk = 1; finish(); }, 8000);
 })();
 </script>
 <div id="app"></div>

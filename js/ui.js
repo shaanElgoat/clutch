@@ -96,7 +96,6 @@ const ACH = [
   { id: 'kick10', icon: 'target', t: 'Automatic', d: 'Make 10 kicks in one Kick It run' },
   { id: 'pack_legend', icon: 'sparkle', t: 'Pulled a Legend', d: 'Pull a 95+ card from a pack' },
   { id: 'legends5', icon: 'star', t: 'Hall of Famers', d: 'Draft 5 players rated 95+ on one team' },
-  { id: 'chem50', icon: 'flask', t: 'Chemistry Class', d: 'Build a team with 50+ chemistry' },
   { id: 'blind_ring', icon: 'eyeoff', t: 'Blindfolded', d: 'Win a ring in a Blind draft' },
   { id: 'mp_win', icon: 'globe', t: 'Bragging Rights', d: 'Win an online or party game' },
   { id: 'club5', icon: 'shield', t: 'Contender', d: 'Reach Division 5 with My Club' },
@@ -129,7 +128,6 @@ function collect(xi) {
   if (n >= 100) unlock('coll100');
   if (n >= 500) unlock('coll500');
   if (xi.filter((pid) => pid !== null && TE.PLAYERS[pid].r >= 95).length >= 5) unlock('legends5');
-  if (TE.teamProfile(xi).chem >= 50) unlock('chem50');
 }
 
 // ================= SOUND =================

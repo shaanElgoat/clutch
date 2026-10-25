@@ -38,7 +38,7 @@ function Draft() {
   go(`<div class="topbar">
       <button class="icon-btn" data-act="quit" aria-label="Quit">${ICON.close}</button>
       <div class="grow"><div class="round" id="dRound"></div><div class="mute" style="font-size:11px;font-weight:800;letter-spacing:.06em">${esc((g.cfg.title || 'DRAFT').toUpperCase())}</div></div>
-      <div class="ring" id="dOvr"></div><div class="ring chem" id="dChem"></div></div>
+      <div class="ring" id="dOvr"></div></div>
     <div id="dTurn"></div>
     <div class="turf" id="dField"></div>
     <div class="panel"><div class="spinbox" id="dSpin"></div><div class="squad" id="dSquad"></div></div>`, 'draft');
@@ -70,12 +70,10 @@ function renderDraftTop() {
   const g = App.g, st = g.st, m = st.managers[g.view];
   const prof = TE.teamProfile(m.xi, { mods: g.cfg.mods });
   $('#dRound').innerHTML = st.done ? 'DONE' : `${st.replace ? 'MOVE' : 'PICK'} ${st.round + 1}<small>/ ${st.rounds}</small>`;
-  const o = $('#dOvr'), c = $('#dChem');
+  const o = $('#dOvr');
   const ovr = prof.ovr ? Math.round(prof.ovr) : 0;
   o.style.setProperty('--p', Math.max(0, Math.min(100, (ovr - 60) * 2.5)) + '%');
   o.innerHTML = `<b>${st.blind ? '?' : ovr || '–'}</b><small>OVR</small>`;
-  c.style.setProperty('--p', prof.chem + '%');
-  c.innerHTML = `<b>${prof.chem}</b><small>CHEM</small>`;
 }
 function renderTurn() {
   const g = App.g, st = g.st, box = $('#dTurn');
@@ -162,10 +160,6 @@ function rowStatus(pid) {
     const d = slotGain(m, p, best);
     note = `Replaces ${shortName(TE.PLAYERS[m.xi[best.slot]].name)} at ${lbl} (${d >= 0 ? '+' : ''}${d})`;
     cls = d > 0 ? 'link' : 'taken';
-  } else {
-    const links = m.xi.filter((x) => x !== null && TE.PLAYERS[x].team === p.team).length;
-    const eraL = m.xi.filter((x) => x !== null && TE.PLAYERS[x].era === p.era).length;
-    if (links) { note += ` · +chem ${links} ${TE.DATA.TEAMS[p.team].short}`; cls = 'link'; } else if (eraL >= 2) { note += ' · +era link'; cls = 'link'; }
   }
   return { off: false, note, cls, best };
 }

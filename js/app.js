@@ -126,7 +126,7 @@ function Help() {
   modal(`<h2 class="d">How CLUTCH works</h2>
     <div class="steps">
       <div class="step"><div class="n blue">${ico('refresh', 18)}</div><div><h4>Spin the wheel</h4><p>It lands on an NFL team, and you draft from its <b>2026 roster</b>. Legends from past decades live in card packs.</p></div></div>
-      <div class="step"><div class="n orange">${ico('cards', 18)}</div><div><h4>Draft 12</h4><p>QB, RB, 2 WR, TE, OL, DL, LB, CB, S, K and Head Coach. Teammates from the same franchise build chemistry.</p></div></div>
+      <div class="step"><div class="n orange">${ico('cards', 18)}</div><div><h4>Draft 12</h4><p>QB, RB, 2 WR, TE, OL, DL, LB, CB, S, K and Head Coach.</p></div></div>
       <div class="step"><div class="n pink">${ico('timer', 18)}</div><div><h4>Make the call</h4><p>Close games stop at 2:00 for a Clutch Call. In Gameday you call every play.</p></div></div>
       <div class="step"><div class="n mint">${ico('calendar', 18)}</div><div><h4>Come back daily</h4><p>A Daily Draft on the Season tab, three daily puzzles in Games, a free pack, and a streak to protect.</p></div></div>
     </div>
@@ -475,9 +475,6 @@ document.addEventListener('click', (e) => {
   if (b && ACTIONS[b.dataset.act]) { Sfx.ensure(); Sfx.tap(); ACTIONS[b.dataset.act](b); }
 });
 function boot() {
-  // 1-second intro: the logo pops, the bar fills, then it fades away
-  const sp = document.getElementById('splash');
-  if (sp) setTimeout(() => { sp.classList.add('out'); setTimeout(() => sp.remove(), 350); }, 1000);
   Store.load();
   applyTheme();
   document.body.insertAdjacentHTML('afterbegin', DEFS + '<div class="blobs"><i></i><i></i><i></i></div>');
@@ -489,12 +486,13 @@ function boot() {
     if (ok) {
       ch.n = String(ch.n || 'A friend').slice(0, 14); ch.title = String(ch.title || '').slice(0, 26); ch.rec = String(ch.rec || '').slice(0, 7);
       ch.c = Array.isArray(ch.c) ? ch.c.filter((v) => typeof v === 'string').slice(0, 12) : [];
-      App.challenge = ch; SeasonSetup('challenge'); return;
+      App.challenge = ch; SeasonSetup('challenge'); if (window.__ldReady) window.__ldReady(); return;
     }
     toast('That challenge link is broken');
   }
-  if (q.get('room')) { App.pendingRoom = q.get('room').toUpperCase().slice(0, 5); history.replaceState(null, '', location.pathname); OnlineScreen(); return; }
+  if (q.get('room')) { App.pendingRoom = q.get('room').toUpperCase().slice(0, 5); history.replaceState(null, '', location.pathname); OnlineScreen(); if (window.__ldReady) window.__ldReady(); return; }
   goTab('play');
+  if (window.__ldReady) window.__ldReady();
   if (Store.data.resetNotice) { Store.data.resetNotice = false; Store.save(); later(resetNotice, 1300); }
 }
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});

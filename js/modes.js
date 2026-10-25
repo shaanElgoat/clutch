@@ -48,7 +48,7 @@ function GamedayOpp(xi, mods) {
   const me = TE.teamProfile(xi, { mods });
   const el = go(`
     <div class="topbar"><button class="icon-btn" data-act="home">${ICON.back}</button><h2 class="d">Pick your opponent</h2></div>
-    <div class="hero-card row" style="margin-bottom:12px"><div style="width:64px">${myTeamHelm()}</div><div class="grow"><b>${esc(myName() === 'You' ? 'Your team' : myName())}</b><div class="mute" style="font-weight:800">OVR ${me.ovr.toFixed(0)} · Chem ${me.chem}</div></div><button class="chip" id="edit">New draft</button></div>
+    <div class="hero-card row" style="margin-bottom:12px"><div style="width:64px">${myTeamHelm()}</div><div class="grow"><b>${esc(myName() === 'You' ? 'Your team' : myName())}</b><div class="mute" style="font-weight:800">OVR ${me.ovr.toFixed(0)}</div></div><button class="chip" id="edit">New draft</button></div>
     <div class="opp-picker">${opps.map((o, i) => { const t = teamColors(o.team); return `<button class="opp" data-o="${i}"><div class="hh">${helmet(t.c1, t.c2)}</div><div><b>${esc(o.team.name)}</b><small>OVR ${o.team.prof.ovr.toFixed(0)} · ${TE.DATA.ERA_LABEL[TE.SQUADS[o.team.sq].era]}</small></div><span class="diff" style="background:${o.bg};color:${o.col}">${o.diff}</span></button>`; }).join('')}</div>
     <div class="spacer"></div>
     ${miniField(xi, mods)}`);

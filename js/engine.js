@@ -78,21 +78,6 @@
   const OFF_W = { QB: 0.34, RB: 0.12, WR: 0.14, TE: 0.1, OL: 0.16 };
   const DEF_W = { DL: 0.3, LB: 0.25, CB: 0.25, S: 0.2 };
 
-  function chemistry(pids) {
-    const team = {}, era = {}, exact = {};
-    pids.forEach((id) => {
-      const p = PLAYERS[id];
-      team[p.team] = (team[p.team] || 0) + 1;
-      era[p.era] = (era[p.era] || 0) + 1;
-      exact[p.sq] = (exact[p.sq] || 0) + 1;
-    });
-    let pts = 0;
-    for (const k in team) if (team[k] > 1) pts += (team[k] - 1) * 7;
-    for (const k in exact) if (exact[k] > 1) pts += (exact[k] - 1) * 3;
-    for (const k in era) if (era[k] > 1) pts += (era[k] - 1) * 2.5;
-    return Math.min(100, Math.round(pts));
-  }
-
   // xi: array (one entry per lineup slot) of player ids or null
   function teamProfile(xi, opts) {
     let offS = 0, offW = 0, defS = 0, defW = 0, sum = 0, n = 0, minO = 99, minD = 99;
@@ -110,15 +95,12 @@
       sum += e; n++;
       return e;
     });
-    if (!n) return { ovr: 0, off: 0, def: 0, chem: 0, eff, hc: 0, k: 0 };
-    const placed = xi.filter((x) => x !== null && x !== undefined);
-    const chem = opts && opts.fixedChem !== undefined ? opts.fixedChem : chemistry(placed);
-    const coach = hc === null ? 0 : (hc - 82) * 0.22;
-    const bonus = chem * 0.03 + coach;
+    if (!n) return { ovr: 0, off: 0, def: 0, eff, hc: 0, k: 0 };
+    const bonus = hc === null ? 0 : (hc - 82) * 0.22; // the head coach lifts (or drags) both units
     const off = offW ? (offS / offW) * 0.85 + minO * 0.15 + bonus : 60;
     const def = defW ? (defS / defW) * 0.85 + minD * 0.15 + bonus : 60;
     const ovr = (off + def) / 2 * 0.85 + (k === null ? 75 : k) * 0.05 + (hc === null ? 75 : hc) * 0.1;
-    return { ovr, off, def, chem, eff, hc: hc === null ? 70 : hc, k: k === null ? 70 : k };
+    return { ovr, off, def, eff, hc: hc === null ? 70 : hc, k: k === null ? 70 : k };
   }
 
   // best real lineup for a historical squad (used for opponents)
@@ -140,7 +122,7 @@
       });
       if (best >= 0) { xi[si] = pool[best]; pool[best] = null; }
     });
-    const prof = teamProfile(xi, { fixedChem: 0 });
+    const prof = teamProfile(xi);
     // empty slots (thin squads) count as replacement-level players
     const holes = xi.filter((x) => x === null).length;
     prof.off += SIM.OPP - holes * 0.8; prof.def += SIM.OPP - holes * 0.8; prof.ovr += SIM.OPP - holes * 0.8;
@@ -270,10 +252,9 @@
     SQUADS[sq].players.forEach((pid) => {
       if (!eligible(pid, m, taken, st.replace)) return;
       const p = PLAYERS[pid];
-      const links = m.xi.filter((x) => x !== null && PLAYERS[x].team === p.team).length;
       openSlotsFor(pid, m.xi, st.replace).forEach((o) => {
         const w = { QB: 3, HC: 1, K: -2 }[LINEUP[o.slot].pos] || 0; // value the QB, not the kicker
-        const v = p.r - o.pen + w + links * 0.8 + (r() - 0.5) * (noise === undefined ? 4 : noise);
+        const v = p.r - o.pen + w + (r() - 0.5) * (noise === undefined ? 4 : noise);
         if (!best || v > best.v) best = { pid, slot: o.slot, v };
       });
     });
@@ -281,7 +262,7 @@
   }
 
   // ---------- game simulation ----------
-  const SIM = { TD: 0.2, TDK: 0.055, FG: 0.15, HOME: 1.5, POSS: 11, OPP: 3, SPINW: 0.18, POK: 0.6 };
+  const SIM = { TD: 0.2, TDK: 0.055, FG: 0.15, HOME: 1.5, POSS: 11, OPP: 2.3, SPINW: 0.18, POK: 0.6 };
   // playoff CPU teams play above their rating, round by round: the ring should be almost impossible
   const PO_BOOST = { 'Wild Card': 4, 'Divisional': 8, 'Conference Championship': 12, 'Super Bowl': 17 };
   function drive(r, off, def, k) {
@@ -587,7 +568,7 @@
     return (DREAM = xi);
   }
   function customTeam(name, xi, targetOvr) {
-    const prof = teamProfile(xi, { fixedChem: 40 });
+    const prof = teamProfile(xi);
     if (targetOvr) { const d = targetOvr - prof.ovr; prof.off += d; prof.def += d; prof.ovr += d; }
     return { name, xi, prof };
   }
@@ -639,7 +620,7 @@
 
   const API = {
     DATA, DATA_VERSION, PLAYERS, SQUADS, CUR_SQ, isCurrent, eraTag, POSITIONS, POS_NAME, LINEUP, SLOTS, FIT, SIM, STAGES,
-    hash, rng, shuffle, fitPenalty, chemistry, teamProfile, squadTeam, squadStrength, squadName, squadLong, teamOf,
+    hash, rng, shuffle, fitPenalty, teamProfile, squadTeam, squadStrength, squadName, squadLong, teamOf,
     createDraft, botPick, currentManager, activeSquad, activeTaken, eligible, openSlotsFor, respin, pick,
     playGame, simSeason, verdict, clutchScenario, resolveClutch, pass, wildcard, singleGame, dreamXI, customTeam, gauntletLadder, ageTeam,
   };

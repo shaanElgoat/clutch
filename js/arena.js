@@ -41,9 +41,9 @@ function DuelHub(d) {
   const pm = TE.teamProfile(d.me), pt = duelProf(d);
   const el = go(`
     <div class="topbar"><button class="icon-btn" id="q">${ICON.close}</button><h2 class="d grow">Draft Duel</h2><span class="pill">vs <b>${esc(d.rival.tag)}</b></span></div>
-    <div class="series"><div class="sr-side"><div class="helmbig">${myTeamHelm()}</div><b>You</b><span>OVR ${pm.ovr.toFixed(0)} · Chem ${pm.chem}</span></div>
+    <div class="series"><div class="sr-side"><div class="helmbig">${myTeamHelm()}</div><b>You</b><span>OVR ${pm.ovr.toFixed(0)}</span></div>
       <div class="sr-mid"><div class="sr-score">${w}<i>–</i>${l}</div><small>Best of 3</small></div>
-      <div class="sr-side"><div class="helmbig">${helmet('#ff3d7f', '#0f1631', true)}</div><b>${esc(d.rival.name)}</b><span>OVR ${pt.ovr.toFixed(0)} · Chem ${pt.chem}</span></div></div>
+      <div class="sr-side"><div class="helmbig">${helmet('#ff3d7f', '#0f1631', true)}</div><b>${esc(d.rival.name)}</b><span>OVR ${pt.ovr.toFixed(0)}</span></div></div>
     <div class="sr-games">${[0, 1, 2].map((i) => { const g = d.games[i]; return `<div class="sr-g ${g ? (g.win ? 'W' : 'L') : i === d.games.length ? 'next' : ''}"><small>Game ${i + 1}</small><b>${g ? g.us + '–' + g.them : i === d.games.length ? 'Up next' : '–'}</b></div>`; }).join('')}</div>
     <button class="btn primary big" id="play">${ico('play', 18)} Play game ${d.games.length + 1}</button>
     <div class="seg two" id="xiSeg"><button class="on" data-v="me">Your team</button><button data-v="them">${esc(d.rival.name)}</button></div>
@@ -110,7 +110,7 @@ function CapStart() {
   introScreen({
     title: 'Salary Cap', icon: 'coin', bg: 'linear-gradient(160deg,#fff4dc,#ffe3a6)',
     headline: `Build a champion for $${CAP}M`, sub: 'Every spot offers a star, a starter and a bargain. You cannot afford all the stars.',
-    steps: [['12 picks', 'Three offers per position. Stars cost a fortune, bargains keep you flexible.'], ['Spend smart', 'Teammates from the same team still add chemistry. One re-roll if you hate the offers.'], ['Playoff run', 'Four knockout games, live. Lose once and you are out.']],
+    steps: [['12 picks', 'Three offers per position. Stars cost a fortune, bargains keep you flexible.'], ['Spend smart', 'Balance stars and bargains. One re-roll if you hate the offers.'], ['Playoff run', 'Four knockout games, live. Lose once and you are out.']],
     extra: `<div class="hero-card row" style="margin-top:12px"><div class="intro-ic sm">${ico('trophy', 22)}</div><div class="grow"><b>Best run</b><div class="mute" style="font-weight:800">${['No playoff wins yet', 'Won the Wild Card', 'Won the Divisional', 'Won the Conference', 'Super Bowl champion'][s.capBest || 0]}</div></div></div>`,
     buttons: [{ label: `${ico('coin', 18)} Start building`, cls: 'primary', fn: () => CapBuild({ seed: 'cap:' + rid(), xi: new Array(TE.SLOTS).fill(null), spent: 0, round: 0, rerolls: 0, rerollsLeft: 1 }) }],
   });

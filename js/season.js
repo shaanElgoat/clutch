@@ -27,7 +27,7 @@ function SeasonScreen(ctx) {
   const S = ctx.S, multi = ctx.users.length > 1;
   const prof = TE.teamProfile(ctx.users[0].xi, { mods: ctx.users[0].mods });
   const el = go(`
-    <div class="season-head"><div class="d">${esc(ctx.title || 'The Season')}</div><div class="mute" style="font-weight:800">${multi ? ctx.users.length + ' GMs · one conference' : 'OVR ' + prof.ovr.toFixed(0) + ' · Chem ' + prof.chem}</div></div>
+    <div class="season-head"><div class="d">${esc(ctx.title || 'The Season')}</div><div class="mute" style="font-weight:800">${multi ? ctx.users.length + ' GMs · one conference' : 'OVR ' + prof.ovr.toFixed(0)}</div></div>
     ${multi ? '<div class="mgr-cards" id="mc"></div>' : `
       <div class="scorebar"><div class="sb w"><div class="v" id="sW">0</div><div class="k">WINS</div></div><div class="sb l"><div class="v" id="sL">0</div><div class="k">LOSSES</div></div><div class="sb"><div class="v" id="sP">–</div><div class="k">SEED</div></div><div class="sb c"><div class="v" id="sC">0/0</div><div class="k">CLUTCH</div></div></div>
       <div class="form" id="form">${'<i></i>'.repeat(17)}</div>
@@ -240,7 +240,7 @@ function SeasonResults(r, opts) {
       <div class="fact ${r.champion ? 'hi' : ''}"><div class="k">Playoffs</div><div class="v">${stageShort(r)}</div></div>
       <div class="fact"><div class="k">Clutch calls</div><div class="v">${cw} / ${r.clutch.length} won</div></div>
       <div class="fact"><div class="k">Team rating</div><div class="v">${r.prof.ovr.toFixed(1)} OVR</div></div>
-      <div class="fact"><div class="k">Chemistry</div><div class="v">${r.prof.chem} / 100</div></div>
+      <div class="fact"><div class="k">Head coach</div><div class="v">${Math.round(r.prof.hc)}</div></div>
     </div>
     <div class="actions">${(opts.actions || []).map((a, i) => (a.pair ? '' : `<button class="btn ${a.cls || ''}" data-a="${i}">${a.label}</button>`)).join('')}
       <div class="two">${(opts.actions || []).map((a, i) => (a.pair ? `<button class="btn ${a.cls || ''}" data-a="${i}">${a.label}</button>` : '')).join('')}</div></div>

@@ -221,7 +221,6 @@ h1, h2, h3, h4 { letter-spacing: -.02em; }
 .ring { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--blue) var(--p, 0%), var(--line) 0); position: relative; flex: none; }
 .ring::before { content: ''; position: absolute; inset: 4px; border-radius: 50%; background: var(--card); }
 .ring b { position: relative; font-weight: 800; font-size: 15px; letter-spacing: -.03em; }
-.ring.chem { background: conic-gradient(var(--violet) var(--p, 0%), var(--line) 0); }
 .ring small { position: absolute; bottom: -14px; font-size: 9px; font-weight: 800; color: var(--mute); letter-spacing: .04em; }
 .ring.big { width: 72px; height: 72px; }
 .ring.big::before { inset: 6px; }
@@ -694,7 +693,7 @@ tr.po td:first-child { color: var(--mint); font-weight: 800; }
 .news small { display: block; font-size: 12.5px; font-weight: 600; color: var(--mute); line-height: 1.4; margin-top: 2px; }
 .news .icon-btn { width: 30px; height: 30px; flex: none; }
 .topbar .grow { min-width: 0; }
-/* draft header rings: keep the OVR / CHEM label inside the ring so it never collides with the field */
+/* draft header ring: keep the OVR label inside the ring so it never collides with the field */
 .draft .topbar .ring { width: 48px; height: 48px; grid-template-rows: auto auto; align-content: center; gap: 0; }
 .draft .topbar .ring b { line-height: 1; font-size: 15px; }
 .draft .topbar .ring small { position: relative; bottom: auto; font-size: 7.5px; line-height: 1.1; z-index: 1; }
@@ -810,18 +809,6 @@ html, body { overflow-x: clip; }
 .cont .dl-go { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border-radius: 50%; }
 .resume-head { display: flex; align-items: center; gap: 12px; }
 .resume-head .mc-ic { width: 44px; height: 44px; }
-
-/* ---------- 1-second intro ---------- */
-#splash { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; background: radial-gradient(120% 80% at 50% 30%, #eef2ff, #f5f6fa 60%); transition: opacity .3s ease, visibility .3s; animation: spAuto 0s linear 1.6s forwards; }
-#splash.out { opacity: 0; visibility: hidden; }
-@keyframes spAuto { to { opacity: 0; visibility: hidden; } }
-.sp-in { display: flex; flex-direction: column; align-items: center; gap: 22px; }
-.sp-logo { width: 116px; height: 116px; border-radius: 30px; box-shadow: 0 22px 44px -14px rgba(52,102,255,.6); animation: spPop .55s cubic-bezier(.34,1.56,.64,1) both; }
-@keyframes spPop { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
-.sp-bar { width: 132px; height: 6px; border-radius: 6px; background: #dfe4f3; overflow: hidden; animation: spFade .25s ease .2s both; }
-.sp-bar i { display: block; height: 100%; width: 0; border-radius: 6px; background: var(--brand); animation: spLoad .75s cubic-bezier(.4,0,.2,1) .25s forwards; }
-@keyframes spLoad { to { width: 100%; } }
-@keyframes spFade { from { opacity: 0; transform: translateY(6px); } }
 
 /* ---------- tidy grouped lists ---------- */
 .group-title { margin: 22px 4px 8px; font-size: 13px; font-weight: 800; color: var(--mute); letter-spacing: .02em; }

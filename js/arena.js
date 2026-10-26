@@ -105,13 +105,17 @@ function capOffers(c) {
   const ids = [...new Set(out.map((p) => p.id))];
   return ids.sort((a, b) => TE.PLAYERS[b].r - TE.PLAYERS[a].r);
 }
+// best playoff run in words: how many of the 4 knockout games you've won in one run
+const CAP_BEST = ['No playoff wins yet', 'Won the Wild Card', 'Won the Divisional round', 'Won the Conference', 'Super Bowl champion'];
+const CAP_BEST_SHORT = ['No wins yet', 'Won Wild Card', 'Won Divisional', 'Won Conference', 'Champion'];
+const capBestShort = (s) => (!s.capRuns && !s.capBest ? 'New' : CAP_BEST_SHORT[s.capBest || 0]);
 function CapStart() {
   const s = Store.data.stats;
   introScreen({
     title: 'Salary Cap', icon: 'coin', bg: 'linear-gradient(160deg,#fff4dc,#ffe3a6)',
     headline: `Build a champion for $${CAP}M`, sub: 'Every spot offers a star, a starter and a bargain. You cannot afford all the stars.',
     steps: [['12 picks', 'Three offers per position. Stars cost a fortune, bargains keep you flexible.'], ['Spend smart', 'Balance stars and bargains. One re-roll if you hate the offers.'], ['Playoff run', 'Four knockout games, live. Lose once and you are out.']],
-    extra: `<div class="hero-card row" style="margin-top:12px"><div class="intro-ic sm">${ico('trophy', 22)}</div><div class="grow"><b>Best run</b><div class="mute" style="font-weight:800">${['No playoff wins yet', 'Won the Wild Card', 'Won the Divisional', 'Won the Conference', 'Super Bowl champion'][s.capBest || 0]}</div></div></div>`,
+    extra: `<div class="hero-card row" style="margin-top:12px"><div class="intro-ic sm">${ico('trophy', 22)}</div><div class="grow"><b>Best run</b><div class="mute" style="font-weight:800">${s.capRuns || s.capBest ? CAP_BEST[s.capBest || 0] : 'No runs yet'}</div></div></div>`,
     buttons: [{ label: `${ico('coin', 18)} Start building`, cls: 'primary', fn: () => CapBuild({ seed: 'cap:' + rid(), xi: new Array(TE.SLOTS).fill(null), spent: 0, round: 0, rerolls: 0, rerollsLeft: 1 }) }],
   });
 }
@@ -156,7 +160,8 @@ function CapHub(c) {
   const nc = next ? teamColors(next) : null;
   const el = go(`
     <div class="topbar"><button class="icon-btn" id="q">${ICON.close}</button><h2 class="d grow">Playoff run</h2><span class="pill">$${c.spent}M</span></div>
-    <div class="path cap-path">${CAP_ROUNDS.map((R, k) => `<div class="${k < c.wins ? 'W' : c.done && k === c.wins ? 'L' : ''}">${PO_SHORT[R.label]}</div>`).join('')}</div>
+    <div class="cap-steps">${CAP_ROUNDS.map((R, k) => { const cls = k < c.wins ? 'W' : c.done && k === c.wins ? 'L' : k === c.wins ? 'next' : ''; return `<div class="cs ${cls}"><b>${PO_SHORT[R.label]}</b><small>${cls === 'W' ? 'Won' : cls === 'L' ? 'Lost' : cls === 'next' ? 'Up next' : 'Game ' + (k + 1)}</small></div>`; }).join('')}</div>
+    <p class="mute center" style="font-weight:700;font-size:13px;margin:8px 0 14px">${c.done ? `Run over: ${CAP_BEST[c.wins].toLowerCase()}.` : c.wins >= 4 ? 'Champions!' : `Game ${c.wins + 1} of 4. Win all four to be champion. Lose once and the run is over.`}</p>
     ${next ? `<div class="vs"><div class="side"><div class="helmbig">${myTeamHelm()}</div><b>You</b><span>OVR ${prof.ovr.toFixed(0)}</span></div><div class="x">VS</div>
       <div class="side"><div class="helmbig">${helmet(nc.c1, nc.c2, true)}</div><b>${esc(next.name)}</b><span>OVR ${next.prof.ovr.toFixed(0)}</span></div></div>
       <button class="btn hot big" id="play">${ico('play', 18)} ${esc(CAP_ROUNDS[c.wins].label)}</button>` : ''}
@@ -168,7 +173,9 @@ function CapHub(c) {
       onDone: (r, el2) => {
         const s = Store.data.stats;
         if (r.win) { c.wins++; addXP(40 + (c.wins === 4 ? 300 : 0)); Sfx.crowd(true); } else { c.done = true; Sfx.groan(); }
-        s.capBest = Math.max(s.capBest || 0, c.wins); Store.save();
+        s.capBest = Math.max(s.capBest || 0, c.wins);
+        if (c.done || c.wins >= 4) s.capRuns = (s.capRuns || 0) + 1;
+        Store.save();
         if (c.done || c.wins >= 4) Runs.clear('cap'); else Runs.set('cap', { phase: 'hub', c });
         if (c.wins >= 2) unlock('cap2');
         const champ = c.wins === 4;

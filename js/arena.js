@@ -107,15 +107,15 @@ function capOffers(c) {
 }
 // best playoff run in words: how many of the 4 knockout games you've won in one run
 const CAP_BEST = ['No playoff wins yet', 'Won the Wild Card', 'Won the Divisional round', 'Won the Conference', 'Super Bowl champion'];
-const CAP_BEST_SHORT = ['No wins yet', 'Won Wild Card', 'Won Divisional', 'Won Conference', 'Champion'];
-const capBestShort = (s) => (!s.capRuns && !s.capBest ? 'New' : CAP_BEST_SHORT[s.capBest || 0]);
+// Salary Cap titles won (older saves that reached 4/4 already count one)
+const capTitles = (s) => (s.capTitles !== undefined ? s.capTitles : s.capBest >= 4 ? 1 : 0);
 function CapStart() {
   const s = Store.data.stats;
   introScreen({
     title: 'Salary Cap', icon: 'coin', bg: 'linear-gradient(160deg,#fff4dc,#ffe3a6)',
     headline: `Build a champion for $${CAP}M`, sub: 'Every spot offers a star, a starter and a bargain. You cannot afford all the stars.',
     steps: [['12 picks', 'Three offers per position. Stars cost a fortune, bargains keep you flexible.'], ['Spend smart', 'Balance stars and bargains. One re-roll if you hate the offers.'], ['Playoff run', 'Four knockout games, live. Lose once and you are out.']],
-    extra: `<div class="hero-card row" style="margin-top:12px"><div class="intro-ic sm">${ico('trophy', 22)}</div><div class="grow"><b>Best run</b><div class="mute" style="font-weight:800">${s.capRuns || s.capBest ? CAP_BEST[s.capBest || 0] : 'No runs yet'}</div></div></div>`,
+    extra: `<div class="hero-card row" style="margin-top:12px"><div class="intro-ic sm">${ico('trophy', 22)}</div><div class="grow"><b>Titles won</b><div class="mute" style="font-weight:800">${capTitles(s)}</div></div></div>`,
     buttons: [{ label: `${ico('coin', 18)} Start building`, cls: 'primary', fn: () => CapBuild({ seed: 'cap:' + rid(), xi: new Array(TE.SLOTS).fill(null), spent: 0, round: 0, rerolls: 0, rerollsLeft: 1 }) }],
   });
 }
@@ -179,7 +179,7 @@ function CapHub(c) {
         if (c.done || c.wins >= 4) Runs.clear('cap'); else Runs.set('cap', { phase: 'hub', c });
         if (c.wins >= 2) unlock('cap2');
         const champ = c.wins === 4;
-        if (champ) { unlock('cap_ring'); confetti(); Sfx.trophy(); }
+        if (champ) { unlock('cap_ring'); confetti(); Sfx.trophy(); s.capTitles = capTitles(s) + 1; Store.save(); }
         $('#after', el2).innerHTML = `<div class="outcome ${r.win ? 'win' : 'loss'}" style="margin-top:12px"><h2>${champ ? 'Super Bowl champions!' : r.win ? 'Moving on' : 'Season over'}</h2><p>${champ ? `Built for $${c.spent}M. Front office of the year.` : r.win ? `${CAP_ROUNDS[c.wins].label} is next.` : `Out in the ${R.label}.`}</p></div>
           <div class="actions">${r.win && !champ ? '<button class="btn hot" id="nx">Next round</button>' : `<button class="btn primary" id="re">${ico('refresh', 18)} Build again</button><div class="two"><button class="btn" id="sh">${ico('share', 18)} Share</button><button class="btn" data-act="home">Done</button></div>`}</div>`;
         const nx = $('#nx', el2); if (nx) nx.addEventListener('click', () => CapHub(c));

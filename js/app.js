@@ -101,7 +101,7 @@ function GamesTab() {
     <div class="group-title">Head to head</div>
     <div class="group">
       ${lrow(Object.assign({ attr: 'data-act="duel"', col: 'violet', ic: 'users', t: 'Draft Duel', sub: 'Out-draft a rival, then best of 3' }, res('duel', (s.duelW || 0) + ' won')))}
-      ${lrow(Object.assign({ attr: 'data-act="cap"', col: 'sun', ic: 'coin', t: 'Salary Cap', sub: `$${CAP}M team, then 4 knockout games` }, res('cap', 'Best: ' + capBestShort(s))))}
+      ${lrow(Object.assign({ attr: 'data-act="cap"', col: 'sun', ic: 'coin', t: 'Salary Cap', sub: `$${CAP}M team, then 4 knockout games` }, res('cap', capTitles(s) + ' won')))}
       ${lrow(Object.assign({ attr: 'data-act="gameday"', col: 'mint', ic: 'clipboard', t: 'Gameday', sub: 'Call every play yourself' }, res('gameday', s.gdWins + '-' + (s.gdPlayed - s.gdWins))))}
     </div>
 
@@ -348,7 +348,7 @@ function Trophies() {
       <div class="stat"><div class="si pink">${ico('timer', 18)}</div><b>${s.clutchW}</b><small>Clutch wins</small></div>
       <div class="stat"><div class="si mint">${ico('clipboard', 18)}</div><b>${s.gdWins}-${s.gdPlayed - s.gdWins}</b><small>Gameday</small></div>
       <div class="stat"><div class="si pink">${ico('users', 18)}</div><b>${s.duelW || 0}</b><small>Duels won</small></div>
-      <div class="stat"><div class="si sun">${ico('coin', 18)}</div><b style="font-size:15px">${capBestShort(s)}</b><small>Best cap run</small></div>
+      <div class="stat"><div class="si sun">${ico('coin', 18)}</div><b>${capTitles(s)}</b><small>Cap titles</small></div>
       <div class="stat"><div class="si orange">${ico('goalpost', 18)}</div><b>${s.kickBest}</b><small>Kick It</small></div>
     </div>
     <div class="section-title">Achievements</div>

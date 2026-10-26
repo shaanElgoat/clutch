@@ -20,7 +20,7 @@ Double-click `Play CLUTCH.bat`, or run `python serve.py`, then open http://local
 | **Kick It** | Arcade field goals. Lock your aim, then your power, and adjust for the wind. Each make moves you back 5 yards. You have 3 misses. |
 | **Packs** | The **only** way to get cards. Buy Standard, Pro or Legend packs with coins, and duplicates level a card up. You get 150 free coins a day, and Rivals promotions pay coins. |
 | **My Club** | Build a 12-man team only from cards you own (each ★ is +1 rating) and climb the Rivals ladder from Division 10 to Division 1. Three wins promote you, a loss costs a point, and promotions award packs. You can also take your club into Gameday. |
-| **Friends** | Online steal-draft rooms (2–4 phones, room code) or Party mode on one phone, both with CPU rivals. Challenge links replay your exact spins and clutch calls. |
+| **Friends** | Online rooms (2–4 phones, room code) run through the Firebase Realtime Database, so they work on any network, survive app switching and support rejoining. Players who drop out get CPU picks until they return. There's also Party mode on one phone. Challenge links replay your exact spins and clutch calls. |
 
 ## Navigation
 Five bottom tabs: **Season** (the main game, Daily Draft, friends seasons, your season stats), **Games** (the 3 daily puzzles, Draft Duel, Salary Cap, Gameday, Kick It, Who's Better), **Club** (My Club, Packs and Binder), **Trophies** and **Me**.

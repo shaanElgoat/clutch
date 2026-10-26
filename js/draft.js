@@ -212,13 +212,6 @@ function onRow(pid) {
 function doPick(pid, slot) {
   const g = App.g, st = g.st, mi = TE.currentManager(st);
   stopClock();
-  if (g.online && !Net.isHost) {
-    g.pending = true; g.sel = null;
-    Net.send({ t: 'pick', pid, slot });
-    later(() => { g.pending = false; }, 4000);
-    Sfx.place(); buzz(20); renderField(); renderSquad();
-    return;
-  }
   const err = TE.pick(st, mi, pid, slot);
   if (err) { toast(err); return; }
   g.sel = null; g.lastPlaced = { mi, slot };
@@ -232,7 +225,7 @@ function maybeCpu() {
   const g = App.g, st = g.st;
   if (st.done || g.spinning || g.cpuTimer) return;
   const cm = TE.currentManager(st);
-  const isCpu = g.online ? (Net.isHost && Net.isGone(cm)) : g.meta[cm].cpu;
+  const isCpu = g.online ? Net.coverFor(cm) : g.meta[cm].cpu;
   if (!isCpu) return;
   g.cpuTimer = later(() => {
     g.cpuTimer = null;

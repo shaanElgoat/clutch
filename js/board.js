@@ -1,7 +1,7 @@
 'use strict';
 // Daily Draft rankings: anonymous results in a Firebase Realtime Database, read and written over plain REST.
 // No names and no accounts: each device just has a random id. Set BOARD_URL to switch it on.
-const BOARD_URL = ''; // e.g. 'https://clutch-12345-default-rtdb.firebaseio.com'
+const BOARD_URL = 'https://clutch-98557-default-rtdb.firebaseio.com';
 
 const Board = {
   on: () => !!BOARD_URL,
@@ -54,7 +54,7 @@ async function renderBoard(box, day) {
   const po = list.filter((e) => e.st >= 1).length, sb = list.filter((e) => e.st >= 5).length;
   box.innerHTML = `<div class="board">
     <div class="bd-head"><b>How everyone did today</b><small>${n.toLocaleString()} GM${n === 1 ? '' : 's'} played · anonymous</small></div>
-    ${me ? `<div class="bd-rank"><div class="bd-big">#${rank.toLocaleString()}<span>of ${n.toLocaleString()}</span></div><div class="bd-top ${top <= 10 ? 'hot' : ''}">Top ${top}%</div></div>` : ''}
+    ${me ? `<div class="bd-rank"><div class="bd-big">#${rank.toLocaleString()}<span>of ${n.toLocaleString()}</span></div><div class="bd-top ${rank === 1 || top <= 10 ? 'hot' : ''}">${rank === 1 ? 'First place' : 'Top ' + top + '%'}</div></div>` : ''}
     <div class="bd-hist">${hist.map((c, w) => `<div class="bd-col ${me && me.w === w ? 'me' : ''}" title="${w} wins: ${c}"><i style="height:${c ? Math.max(6, (c / max) * 100) : 0}%"></i><small>${w % 3 === 0 || (me && me.w === w) ? w : ''}</small></div>`).join('')}</div>
     <div class="bd-axis">Regular-season wins${me ? ' · your bar is lit' : ''}</div>
     <div class="bd-stats"><div><b>${avgW.toFixed(1)}</b><small>Avg wins</small></div><div><b>${Math.round((po / n) * 100)}%</b><small>Made playoffs</small></div><div><b>${sb}</b><small>Won the ring</small></div></div>

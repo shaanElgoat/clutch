@@ -1,0 +1,14 @@
+{
+  "rules": {
+    "daily": {
+      "$day": {
+        ".read": "$day.matches(/^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/)",
+        "$id": {
+          ".write": "!data.exists() && $id.matches(/^[a-z0-9]{6,16}$/)",
+          ".validate": "newData.hasChildren(['s', 'w', 'l', 'st', 'o', 't']) && newData.child('s').isNumber() && newData.child('s').val() >= 0 && newData.child('s').val() <= 6000 && newData.child('w').isNumber() && newData.child('w').val() >= 0 && newData.child('w').val() <= 17 && newData.child('l').isNumber() && newData.child('l').val() >= 0 && newData.child('l').val() <= 17 && newData.child('st').isNumber() && newData.child('st').val() >= 0 && newData.child('st').val() <= 5 && newData.child('o').isNumber() && newData.child('t').val() === now",
+          "$other": { ".validate": "$other === 's' || $other === 'w' || $other === 'l' || $other === 'st' || $other === 'o' || $other === 't'" }
+        }
+      }
+    }
+  }
+}

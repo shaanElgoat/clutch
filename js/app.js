@@ -72,7 +72,7 @@ function Home() {
 
     <div class="group-title">More seasons</div>
     <div class="group">
-      ${lrow({ attr: 'data-act="daily"', col: 'sun', ic: 'calendar', t: 'Daily Draft', sub: today ? esc(today.title + ' · ' + today.rec) : 'Same spins for everyone today', meta: today ? 'Done' : 'New', hot: !today })}
+      ${lrow({ attr: 'data-act="daily"', col: 'sun', ic: 'calendar', t: 'Daily Draft', sub: today ? esc(today.title + ' · ' + today.rec + (today.rank ? ` · #${today.rank} of ${today.of}` : '')) : 'Same spins for everyone today', meta: today ? 'Done' : 'New', hot: !today })}
       ${lrow({ attr: 'data-act="friends"', col: 'ink', ic: 'users', t: 'Play with friends', sub: 'Online room or pass &amp; play' })}
     </div>`, 'has-tabs');
   tabbar('play');
@@ -179,8 +179,9 @@ function soloSeason(mode, st, blind, resume) {
     Runs.clear(kind);
     seasonProgress(r, { blind });
     if (mode === 'daily') {
-      Store.data.daily[todayKey()] = { s: st.seed, xi, c: choices[0], title: TE.verdict(r).title, rec: rec(r), score: r.score };
+      Store.data.daily[todayKey()] = { s: st.seed, xi, c: choices[0], title: TE.verdict(r).title, rec: rec(r), score: r.score, w: r.w, l: r.l, st: r.stage, o: Math.round(r.prof.ovr) };
       Store.save(); addXP(50);
+      Board.submit(todayKey(), Board.entry(r));
       if (dailyStreak() >= 3) unlock('daily3');
     }
     soloResults(mode, r, st.seed, xi, choices[0], blind);
@@ -198,6 +199,7 @@ function soloResults(mode, r, seed, xi, choices, blind) {
         <div class="stand ${youWin || draw ? 'first' : ''}"><div class="grow"><div class="nm">${esc(myName())}</div><small>${TE.verdict(r).title} · ${rec(r)} · ${stageShort(r)}</small></div></div>
         <div class="stand ${!youWin || draw ? 'first' : ''}"><div class="grow"><div class="nm">${esc(ch.n)}</div><small>${TE.verdict(theirs).title} · ${rec(theirs)} · ${stageShort(theirs)}</small></div></div></div></div>`;
   }
+  if (mode === 'daily' && Board.on()) extra += '<div id="board"></div>';
   const head = mode === 'daily' ? `CLUTCH Daily #${dailyNumber(todayKey())}` : 'CLUTCH';
   const link = () => location.origin + location.pathname + '#c=' + b64urlEncode({ v: TE.DATA_VERSION, s: seed, n: myName() === 'You' ? 'A friend' : myName(), x: xi, c: choices, b: blind ? 1 : 0, title: TE.verdict(r).title, rec: rec(r) });
   SeasonResults(r, { title: mode === 'daily' ? 'Daily #' + dailyNumber(todayKey()) : mode === 'challenge' ? 'Challenge' : 'Season review', xi, extra, actions: [
@@ -206,6 +208,7 @@ function soloResults(mode, r, seed, xi, choices, blind) {
     { label: ico('image', 18) + ' Save image', pair: true, fn: () => shareImage(r, xi, mode === 'daily' ? 'Daily draft #' + dailyNumber(todayKey()) : blind ? 'Blind draft' : 'Season') },
     { label: mode === 'daily' ? 'Play a Season' : ico('refresh', 18) + ' Play again', fn: () => SeasonSetup('quick') },
   ] });
+  if (mode === 'daily') renderBoard(document.getElementById('board'), todayKey());
 }
 function openDaily() {
   const done = Store.data.daily[todayKey()];

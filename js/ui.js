@@ -318,6 +318,8 @@ function pickPlayer(opts) {
       const show = (list, empty) => {
         res.innerHTML = list.length ? list.map((p) => { const why = opts.exclude ? opts.exclude(p.id) : null; const t2 = TE.DATA.TEAMS[p.team];
           const st = opts.stars ? cardLevel(p.id) : 0;
+          // trivia mode: just the name, so the list never gives away a team, position or decade
+          if (opts.namesOnly) return `<button class="srow name-only ${why ? 'off' : ''}" data-pid="${p.id}"><span class="grow"><b>${esc(p.name)}</b>${why ? `<small>${esc(why)}</small>` : ''}</span>${ico('chevron', 18)}</button>`;
           return `<button class="srow ${why ? 'off' : ''}" data-pid="${p.id}"><span class="mc">${pcard(p.id, { hideRating: opts.hideRatings, mods: opts.mods })}</span><span class="grow"><b>${esc(p.name)}${st ? ` <span class="stars-inline">${'★'.repeat(st)}</span>` : ''}</b><small>${esc(t2.name)} · ${TE.DATA.ERA_LABEL[p.era]} · ${p.pos}${why ? ' · ' + esc(why) : ''}</small></span>${ico('chevron', 18)}</button>`; }).join('') : `<div class="mute center" style="padding:20px;font-weight:600">${empty}</div>`;
         $$('.srow', res).forEach((b) => b.addEventListener('click', () => { if (b.classList.contains('off')) return; done = true; bg.remove(); resolve(+b.dataset.pid); }));
       };
@@ -325,7 +327,10 @@ function pickPlayer(opts) {
       q.addEventListener('input', () => {
         const t = norm(q.value.trim());
         if (t.length < 2) { if (opts.initial) show(opts.initial.map((id) => TE.PLAYERS[id]), opts.emptyText || 'No cards'); else res.innerHTML = '<div class="mute center" style="padding:20px;font-weight:600">Keep typing…</div>'; return; }
-        const hits = TE.PLAYERS.filter((p) => (!opts.filter || opts.filter(p.id)) && norm(p.name).includes(t)).sort((a, b) => (norm(a.name).startsWith(t) ? -1 : 0) - (norm(b.name).startsWith(t) ? -1 : 0) || b.r - a.r).slice(0, 40);
+        let hits = TE.PLAYERS.filter((p) => (!opts.filter || opts.filter(p.id)) && norm(p.name).includes(t)).sort((a, b) => (norm(a.name).startsWith(t) ? -1 : 0) - (norm(b.name).startsWith(t) ? -1 : 0) || b.r - a.r);
+        // one row per name (a player who spans teams or decades shows once, alphabetically)
+        if (opts.namesOnly) { const seen = new Set(); hits = hits.filter((p) => !seen.has(p.name) && seen.add(p.name)).sort((a, b) => (norm(a.name).startsWith(t) ? -1 : 0) - (norm(b.name).startsWith(t) ? -1 : 0) || a.name.localeCompare(b.name)); }
+        hits = hits.slice(0, 40);
         show(hits, 'No players found');
       });
     }, 'sheet');

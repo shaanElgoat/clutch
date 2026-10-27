@@ -1008,3 +1008,7 @@ html, body { overflow-x: clip; }
 .cap-steps .cs.W { background: var(--mint-soft); box-shadow: 0 3px 0 #b5e8d3; } .cap-steps .cs.W b, .cap-steps .cs.W small { color: var(--mint); }
 .cap-steps .cs.L { background: #ffe9ed; box-shadow: 0 3px 0 #ffc9d3; } .cap-steps .cs.L b, .cap-steps .cs.L small { color: var(--red); }
 .cap-steps .cs.next { background: linear-gradient(135deg, #4b78ff, #7a5cff); box-shadow: 0 3px 0 #2638b8; } .cap-steps .cs.next b, .cap-steps .cs.next small { color: #fff; }
+/* name-only search rows (The Grid): no card, no team, no position */
+.srow.name-only { padding: 14px 12px; }
+.srow.name-only b { font-size: 16px; }
+.srow.name-only small { display: block; }

@@ -73,7 +73,7 @@ function GridGame(practiceSeed) {
   const guess = async (k, btn) => {
     if (st.done || st.left <= 0) return;
     const ti = G.teams[Math.floor(k / 3)], ci = G.cols[k % 3];
-    const pid = await pickPlayer({ title: `${TE.DATA.TEAMS[ti].short} × ${GRID_COLS[ci].label}`, hideRatings: true, exclude: (id) => (used().indexOf(TE.PLAYERS[id].name) >= 0 ? 'already used' : null) });
+    const pid = await pickPlayer({ title: `${TE.DATA.TEAMS[ti].short} × ${GRID_COLS[ci].label}`, namesOnly: true, exclude: (id) => (used().indexOf(TE.PLAYERS[id].name) >= 0 ? 'already used' : null) });
     if (pid === null || !el.isConnected) return;
     st.left--;
     const fit = gridFit(pid, ti, ci);

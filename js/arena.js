@@ -92,8 +92,8 @@ function DuelEnd(d) {
 const CAP = 170;
 const capPrice = (r) => Math.max(1, Math.round(1.6 * Math.pow(1.13, r - 70)));
 const CAP_ROUNDS = [
-  { label: 'Wild Card', q: 0.35, boost: -1 }, { label: 'Divisional', q: 0.6, boost: 0 },
-  { label: 'Conference Championship', q: 0.82, boost: 1.5 }, { label: 'Super Bowl', q: 0.96, boost: 3 },
+  { label: 'Wild Card', q: 0.35, boost: -3 }, { label: 'Divisional', q: 0.6, boost: -2.5 },
+  { label: 'Conference Championship', q: 0.82, boost: -2 }, { label: 'Super Bowl', q: 0.96, boost: -1.5 },
 ];
 function capOffers(c) {
   const slot = c.round, pos = TE.LINEUP[slot].pos;

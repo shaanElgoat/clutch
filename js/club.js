@@ -119,8 +119,8 @@ async function editClubSlot(i) {
 // ---- Rivals ladder: Division 10 needs 7 wins to go up, and every division above needs one more.
 // Losses never cost progress, but each division brings a tougher opponent (a better roster plus a boost).
 const RIVALS_DIV = {
-  10: { q: 0.4, boost: 1.5 }, 9: { q: 0.45, boost: 2 }, 8: { q: 0.5, boost: 2.5 }, 7: { q: 0.55, boost: 3 }, 6: { q: 0.6, boost: 3.5 },
-  5: { q: 0.66, boost: 4 }, 4: { q: 0.72, boost: 4.5 }, 3: { q: 0.78, boost: 5 }, 2: { q: 0.84, boost: 5.5 }, 1: { q: 0.9, boost: 6 },
+  10: { q: 0.4, boost: -0.7 }, 9: { q: 0.45, boost: -0.3 }, 8: { q: 0.5, boost: 0.1 }, 7: { q: 0.55, boost: 0.4 }, 6: { q: 0.6, boost: 0.7 },
+  5: { q: 0.66, boost: 0.9 }, 4: { q: 0.72, boost: 1.1 }, 3: { q: 0.78, boost: 1.3 }, 2: { q: 0.84, boost: 1.5 }, 1: { q: 0.9, boost: 1.7 },
 };
 const winsToPromote = (div) => 17 - div; // 10 -> 7, 9 -> 8, ... 2 -> 15
 function rivalsOpponent(div, seed) {
@@ -130,7 +130,7 @@ function rivalsOpponent(div, seed) {
   const k = Math.max(0, Math.min(sorted.length - 1, Math.floor(D.q * sorted.length + (r() - 0.5) * 3)));
   const base = TE.squadTeam(sorted[k]);
   const boost = D.boost; // higher divisions bring better rosters, souped up
-  if (!boost) return base;
+  if (!boost) return base; // (negative boosts soften the lower divisions)
   const prof = Object.assign({}, base.prof, { off: base.prof.off + boost, def: base.prof.def + boost, ovr: base.prof.ovr + boost });
   return Object.assign({}, base, { prof, name: base.name + '+' });
 }

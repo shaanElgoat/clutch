@@ -262,7 +262,7 @@
   }
 
   // ---------- game simulation ----------
-  const SIM = { TD: 0.2, TDK: 0.055, FG: 0.15, HOME: 1.5, POSS: 11, OPP: 2.3, SPINW: 0.18, POK: 0.6 };
+  const SIM = { TD: 0.17, TDK: 0.08, FG: 0.15, HOME: 1.5, POSS: 13, OPP: 4.5, SPINW: 0.18, POK: 0, RS: 0.4, PS: 1.5, MID: 91 };
   // playoff CPU teams play above their rating, round by round: the ring should be almost impossible
   const PO_BOOST = { 'Wild Card': 4, 'Divisional': 8, 'Conference Championship': 12, 'Super Bowl': 17 };
   function drive(r, off, def, k) {
@@ -419,7 +419,11 @@
     const game = (hi, ai, week, label, neutral, prime) => {
       if (pending) return null;
       const boost = label ? (PO_BOOST[label] || 0) * SIM.POK : 0;
-      const pump = (t) => (t.user === undefined && boost ? Object.assign({}, t, { prof: Object.assign({}, t.prof, { off: t.prof.off + boost, def: t.prof.def + boost, ovr: t.prof.ovr + boost }) }) : t);
+      // regular season: "any given Sunday" squeezes ratings toward the middle, so upsets happen over 17 weeks;
+      // playoffs use full ratings, so the better team (usually the one with the better record) wins more often
+      const rs = label ? SIM.PS : SIM.RS;
+      const sq = (v) => SIM.MID + (v - SIM.MID) * rs;
+      const pump = (t) => (boost && t.user === undefined) || rs !== 1 ? Object.assign({}, t, { prof: Object.assign({}, t.prof, { off: sq(t.prof.off) + (t.user === undefined ? boost : 0), def: sq(t.prof.def) + (t.user === undefined ? boost : 0), ovr: sq(t.prof.ovr) + (t.user === undefined ? boost : 0) }) }) : t;
       const h = pump(teams[hi]), a = pump(teams[ai]);
       const userSide = h.user !== undefined && a.user === undefined ? 0 : a.user !== undefined && h.user === undefined ? 1 : -1;
       // ask the user only in the playoffs, only if they're interactive, and only vs a CPU team

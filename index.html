@@ -56,7 +56,7 @@
 (function () {
   var tips = ['Tip: you only get one re-spin per game. Save it for a bad spin.', 'Tip: close games stop at 2:00 for your Clutch Call.', 'Tip: cards only come from packs you buy with coins.', 'Tip: elite teams are rare. Build one and the ring is in reach.', 'Tip: closed the app mid-game? Hit Continue to pick it up.'];
   document.getElementById('ldTip').textContent = tips[Math.floor(Math.random() * tips.length)];
-  var total = 16, loaded = 0, shown = 0, t0 = Date.now(), done = false, ready = false;
+  var total = 15, loaded = 0, shown = 0, t0 = Date.now(), done = false, ready = false;
   var fill = document.getElementById('ldFill'), pct = document.getElementById('ldPct');
   function paint() {
     var target = ready ? 100 : Math.min(92, (loaded / total) * 92);
@@ -88,7 +88,6 @@
 <script src="js/stats.js" onload="__ldTick()"></script>
 <script src="js/modes.js" onload="__ldTick()"></script>
 <script src="js/arena.js" onload="__ldTick()"></script>
-<script src="js/royale.js" onload="__ldTick()"></script>
 <script src="js/daily.js" onload="__ldTick()"></script>
 <script src="js/club.js" onload="__ldTick()"></script>
 <script src="js/board.js" onload="__ldTick()"></script>

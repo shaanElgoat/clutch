@@ -28,7 +28,7 @@ function goTab(id) {
 }
 function tabbar(active) {
   App.tab = active;
-  const dot = { games: triviaLeft() > 0, club: freePackReady() || claimable() > 0 };
+  const dot = { games: triviaLeft() > 0, club: freePackReady() || claimable() > 0 || !!clubData().seasonEnd };
   const bar = document.createElement('nav');
   bar.className = 'tabbar';
   bar.innerHTML = TABS.map(([id, ic, lbl]) => `<button class="${id === active ? 'on' : ''}" data-tab="${id}">${ico(ic, 22)}<span>${lbl}</span>${dot[id] ? '<i class="badge-dot"></i>' : ''}</button>`).join('');
@@ -64,7 +64,7 @@ function Home() {
   const el = go(`
     <div class="home-head">${levelChip()}<span class="grow"></span>${coinsChip()}</div>
 
-    ${continueStrip(['season', 'daily', 'challenge', 'party', 'duel', 'cap', 'br', 'gameday', 'drill', 'kick', 'hl'])}
+    ${continueStrip(['season', 'daily', 'challenge', 'party', 'duel', 'cap', 'gameday', 'drill', 'kick', 'hl'])}
 
     <button class="feature" data-act="season"><div class="ft-glow"></div><span class="tag">${ico('star', 14)} 2026 season</span><h3>Season</h3><p>Spin a team, draft 12, chase 17-0 and the ring.</p><span class="go">${Runs.get('season') ? 'Continue' : 'Play'} ${ico('chevron', 16)}</span><div class="art">${helmet('#ffffff', '#ffc531')}</div><i class="fx fx1">${funShape('star', '#ffd75a')}</i><i class="fx fx2">${funShape('star', '#ffffff')}</i><i class="fx fx3">${funShape('ring', '#ff3f7d')}</i></button>
 
@@ -400,7 +400,6 @@ const RUN_INFO = {
   cap: { t: 'Salary Cap', ic: 'coin', col: 'sun', start: () => CapStart() },
   gameday: { t: 'Gameday', ic: 'clipboard', col: 'mint', start: () => GamedayStart() },
   drill: { t: '2-Minute Drill', ic: 'timer', col: 'violet', start: null },
-  br: { t: 'Battle Royale', ic: 'target', col: 'violet', start: () => RoyaleStart() },
   kick: { t: 'Kick It', ic: 'goalpost', col: 'orange', start: () => KickIt() },
   hl: { t: "Who's Better?", ic: 'scale', col: 'blue', start: () => WhosBetter() },
 };
@@ -410,7 +409,6 @@ function runSummary(k, r) {
   if (k === 'duel') { const w = r.d.games.filter((g) => g.win).length; return `Series ${w}–${r.d.games.length - w} vs ${r.d.rival.name}`; }
   if (k === 'cap') return r.phase === 'build' ? `Building · pick ${r.c.round + 1} of 12 · $${CAP - r.c.spent}M left` : `Playoff run · ${r.c.wins} win${r.c.wins === 1 ? '' : 's'}`;
   if (k === 'gameday' || k === 'drill') { const g = r.g; return `${g.ot ? 'OT' : 'Q' + Math.min(4, g.quarter)} ${GD.fmtClock(g.clock)} · ${g.score.us}–${g.score.them}`; }
-  if (k === 'br') { const b = r.b; return b.phase === 'loot' ? `Supply drop waiting · ${BR_ROUNDS[b.round].alive} left` : `${BR_ROUNDS[b.round].alive} GMs left · ${b.elims} elims`; }
   if (k === 'kick') return `${r.S.made} made · ${r.S.lives} ${r.S.lives === 1 ? 'life' : 'lives'} left`;
   if (k === 'hl') return `Streak of ${r.streak}`;
   return 'In progress';
@@ -435,7 +433,6 @@ function resumeRun(k) {
     else if (k === 'cap') (r.phase === 'build' ? CapBuild : CapHub)(r.c);
     else if (k === 'gameday') GamedayGame(r.xi, r.opp, r.diff, { mods: r.mods, resumeG: r.g });
     else if (k === 'drill') { const S = drillSetup(r.seed); GamedayGame(S.xi, S.opp, '2-Minute Drill', { drill: S, daily: r.daily, seed: r.seed, resumeG: r.g }); }
-    else if (k === 'br') RoyaleHub(r.b);
     else if (k === 'kick') KickIt(r.S);
     else if (k === 'hl') WhosBetter(r.streak);
     else return false;

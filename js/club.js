@@ -1,11 +1,46 @@
 'use strict';
-// MY CLUB: build a lineup from cards you own (stars = +1 rating each), then take it into Battle Royale (royale.js).
+// MY CLUB: build a lineup from cards you own (stars = +1 rating each) and climb the Rivals ladder, one season per month.
+const DIV_NAMES = { 10: 'Walk-on', 9: 'Practice Squad', 8: 'Rookie', 7: 'Starter', 6: 'Veteran', 5: 'Pro Bowl', 4: 'All-Pro', 3: 'Elite', 2: 'Legend', 1: 'Hall of Fame' };
+const divName = (d) => DIV_NAMES[d] || 'Walk-on';
+// ---- Rivals seasons: one per calendar month. When the month ends you're paid for the best
+// division you reached, and everyone starts the new season back in Division 10.
+const SEASON_COINS = { 1: 5000, 2: 3500, 3: 2500, 4: 1800, 5: 1200, 6: 800, 7: 500, 8: 300, 9: 150, 10: 50 };
+const monthKey = (d) => todayKey(d).slice(0, 7);
+const seasonName = (k) => new Date(+k.slice(0, 4), +k.slice(5, 7) - 1, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+function seasonLeft() {
+  const n = new Date(), end = new Date(n.getFullYear(), n.getMonth() + 1, 1), ms = end - n;
+  const d = Math.floor(ms / 864e5), h = Math.floor(ms / 36e5) % 24, m = Math.floor(ms / 6e4) % 60;
+  return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`;
+}
 function clubData() {
   if (!Store.data.club) Store.data.club = { xi: new Array(TE.SLOTS).fill(null), div: 10, pts: 0, w: 0, l: 0, top: 10 };
   const c = Store.data.club;
   // drop cards you somehow no longer own
   c.xi = c.xi.map((pid) => (pid !== null && Store.data.coll[pid] ? pid : null));
+  const now = monthKey();
+  if (!c.season) Object.assign(c, { season: now, sw: 0, sl: 0, sbest: c.div });
+  if (c.season !== now) {
+    // season over: bank the reward (only if you played), then everyone resets to Division 10
+    if (c.sw + c.sl > 0) c.seasonEnd = { season: c.season, best: c.sbest, coins: SEASON_COINS[c.sbest] || 50 };
+    Object.assign(c, { season: now, div: 10, pts: 0, sw: 0, sl: 0, sbest: 10, match: null });
+    Store.save();
+  }
   return c;
+}
+function claimSeasonEnd() {
+  const c = clubData(), e = c.seasonEnd;
+  if (!e) return;
+  modal(`<div class="center"><div class="intro-ic" style="margin:0 auto 10px;background:linear-gradient(135deg,#ffcf4d,#ff9f1c)">${ico('trophy', 28)}</div>
+    <h2 class="d">${esc(seasonName(e.season))} is over</h2>
+    <p>You finished the season in <b>Division ${e.best}</b> (${esc(divName(e.best))}).</p>
+    <div class="hero-card center" style="margin:10px 0"><b style="font-size:22px">${ico('coin', 20)} +${e.coins.toLocaleString()} coins</b></div>
+    <p class="mute" style="font-weight:600;font-size:13px">A new season has started. Everyone is back in Division 10. Climb again before the month ends.</p></div>
+    <button class="btn primary big" id="claim" style="margin-top:6px">Claim</button>`, (bg) => {
+    $('#claim', bg).addEventListener('click', () => {
+      Store.data.coins += e.coins; c.seasonEnd = null; Store.save();
+      bg.remove(); Sfx.trophy(); confetti(1400); toast(`+${e.coins.toLocaleString()} coins`); ClubScreen();
+    });
+  }, 'sheet');
 }
 const clubReady = () => clubData().xi.every((x) => x !== null);
 const ownedIds = () => Object.keys(Store.data.coll).map(Number);
@@ -38,17 +73,24 @@ function ClubScreen() {
   const el = go(`
     ${clubSeg('club')}
     <div class="club-hero">
-      <div class="ch-div"><small>Battle Royale</small><b>${brStats().wins} Victor${brStats().wins === 1 ? 'y' : 'ies'}</b><span>Best finish ${brStats().best ? '#' + brStats().best : '–'} · ${brStats().top10} top 10s</span></div>
+      <div class="ch-div"><small>Rivals · ${esc(seasonName(c.season))}</small><b>Division ${c.div}</b><span>${esc(divName(c.div))}</span>
+        <div class="cc-pips">${[0, 1, 2].map((i) => `<i class="${i < c.pts ? 'on' : ''}"></i>`).join('')}<span>${c.div === 1 ? 'Top division' : `${3 - c.pts} win${3 - c.pts === 1 ? '' : 's'} to promote`}</span></div>
+        <div class="season-clock">${ico('timer', 13)} Season ends in ${seasonLeft()}</div></div>
       <div class="ch-rings"><div class="ring big" style="--p:${Math.max(0, Math.min(100, ((prof.ovr || 60) - 60) * 2.5))}%"><b>${filled ? Math.round(prof.ovr) : '–'}</b><small>OVR</small></div></div>
     </div>
     <div class="turf club-turf" id="cf">${FIELD_LINES}${fieldSlots(c.xi, { mods })}</div>
     <p class="mute center" style="font-weight:600;font-size:12.5px;margin:8px 0 0">Tap any spot to swap in a card you own. Each ★ is +1 rating.</p>
     <div class="actions">
       ${c.reward !== null && c.reward !== undefined ? `<button class="btn sun big" id="rwd">${ico('coin', 18)} Claim your ${PACKS[c.reward].cost.toLocaleString()} coin reward</button>` : ''}
-      <button class="btn hot big" id="play" ${clubReady() ? '' : 'disabled'}>${ico('target', 18)} ${!clubReady() ? `Fill all 12 spots (${filled}/12)` : Runs.get('br') ? 'Continue Battle Royale' : 'Battle Royale: drop in'}</button>
+      <button class="btn primary big" id="play" ${clubReady() ? '' : 'disabled'}>${ico('play', 18)} ${!clubReady() ? `Fill all 12 spots (${filled}/12)` : c.match ? 'Finish your Rivals match' : 'Play Rivals match'}</button>
       <div class="two"><button class="btn" id="auto">${ico('sparkle', 18)} Auto-build</button><button class="btn" id="gd" ${clubReady() ? '' : 'disabled'}>${ico('clipboard', 18)} Gameday</button></div>
       ${filled < 12 ? `<button class="btn" data-act="packs">${ico('pack', 18)} Get more cards</button>` : ''}
     </div>
+    <div class="section-title">This season</div>
+    <div class="stat-grid"><div class="stat"><div class="si mint">${ico('check', 18)}</div><b>${c.sw}</b><small>Wins</small></div><div class="stat"><div class="si pink">${ico('x', 18)}</div><b>${c.sl}</b><small>Losses</small></div><div class="stat"><div class="si violet">${ico('crown', 18)}</div><b>Div ${c.top}</b><small>All-time best</small></div></div>
+    <div class="section-title">Season rewards</div>
+    <div class="season-rw">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((d) => `<div class="${d === c.sbest ? 'on' : ''}"><b>Div ${d}</b><small>${SEASON_COINS[d].toLocaleString()}</small></div>`).join('')}</div>
+    <p class="mute center" style="font-weight:600;font-size:12px;margin:8px 0 0">Paid at the end of the month for the best division you reach. Then everyone resets to Division 10.</p>
     <p class="mute center" style="font-weight:600;font-size:12.5px;margin:12px 0 0">${ownedIds().length} cards owned</p>`, 'has-tabs');
   tabbar('club');
   // every slot opens your binder for that position
@@ -57,9 +99,11 @@ function ClubScreen() {
     if (slotEl) { slotEl.style.cursor = 'pointer'; slotEl.addEventListener('click', () => editClubSlot(i)); }
   });
   $('#auto', el).addEventListener('click', () => { autoBuildClub(); Sfx.good(); ClubScreen(); });
-  const pb = $('#play', el); if (pb) pb.addEventListener('click', () => (Runs.get('br') ? resumeRun('br') : RoyaleStart()));
+  const pb = $('#play', el); if (pb) pb.addEventListener('click', rivalsMatch);
   const rw = $('#rwd', el); if (rw) rw.addEventListener('click', openClubReward);
   const gb = $('#gd', el); if (gb) gb.addEventListener('click', () => GamedayOpp(clubData().xi, levelMods(clubData().xi)));
+  // a finished season waits here until you claim it
+  if (c.seasonEnd) later(claimSeasonEnd, 350);
 }
 async function editClubSlot(i) {
   const c = clubData(), s = TE.LINEUP[i];
@@ -72,6 +116,49 @@ async function editClubSlot(i) {
   ClubScreen();
 }
 
+// ---- Rivals ladder: win 3 to promote. A loss costs a point (you never drop a division).
+function rivalsOpponent(div, seed) {
+  const sorted = TE.CUR_SQ.slice().sort((a, b) => TE.squadStrength(a) - TE.squadStrength(b));
+  const r = TE.rng(seed);
+  const q = Math.min(0.99, 0.03 + (10 - div) * 0.095);
+  const k = Math.max(0, Math.min(sorted.length - 1, Math.floor(q * sorted.length + (r() - 0.5) * 3)));
+  const base = TE.squadTeam(sorted[k]);
+  const boost = Math.max(0, (4 - div)) * 0.6; // the top divisions bring souped-up rosters
+  if (!boost) return base;
+  const prof = Object.assign({}, base.prof, { off: base.prof.off + boost, def: base.prof.def + boost, ovr: base.prof.ovr + boost });
+  return Object.assign({}, base, { prof, name: base.name + '+' });
+}
+function rivalsMatch() {
+  const c = clubData();
+  // the match is locked in when it starts, so leaving can't re-roll a loss
+  if (!c.match) { c.match = { seed: 'rv:' + rid(), div: c.div }; Store.save(); }
+  const seed = c.match.seed, opp = rivalsOpponent(c.match.div, seed);
+  const user = { name: myName(), xi: c.xi, mods: levelMods(c.xi) };
+  playLiveMatch({ title: 'Rivals · Division ' + c.match.div, badge: 'Rivals · Division ' + c.match.div, user, opp, seed, po: false, onDone: (r, el) => rivalsResult(r, el) });
+}
+function rivalsResult(r, el) {
+  const c = clubData();
+  if (!c.match) return; // already counted
+  c.match = null;
+  let promo = null;
+  if (r.win) {
+    c.w++; c.sw++; c.pts++;
+    if (c.pts >= 3 && c.div > 1) { c.div--; c.pts = 0; promo = c.div; c.top = Math.min(c.top, c.div); c.sbest = Math.min(c.sbest, c.div); }
+    else if (c.pts >= 3) c.pts = 3;
+    addXP(45); Sfx.crowd(true);
+  } else { c.l++; c.sl++; c.pts = Math.max(0, c.pts - 1); addXP(15); Sfx.groan(); }
+  if (c.div <= 5) unlock('club5');
+  if (c.div <= 1) unlock('club1');
+  const reward = promo ? (promo <= 1 ? 2 : promo <= 4 ? 1 : 0) : null;
+  if (reward !== null) c.reward = reward; // kept until opened
+  Store.save();
+  $('#after', el).innerHTML = `<div class="outcome ${r.win ? 'win' : 'loss'}" style="margin-top:12px"><h2>${r.win ? 'Win' : 'Loss'} ${r.us}–${r.them}</h2><p>${promo ? `Promoted to Division ${promo}: ${esc(divName(promo))}!` : r.win ? `${3 - c.pts} more win${3 - c.pts === 1 ? '' : 's'} to promote` : 'Lost a point. Bounce back.'}</p></div>
+    ${promo ? `<div class="upgrade" style="margin-top:12px"><b>${ico('coin', 18)} Promotion reward: ${PACKS[reward].cost.toLocaleString()} coins</b><div class="mute" style="font-weight:600;font-size:13px">Enough for a ${PACKS[reward].name} pack.</div></div>` : ''}
+    <div class="actions">${promo ? `<button class="btn primary" id="rw">${ico('coin', 18)} Claim ${PACKS[reward].cost.toLocaleString()} coins</button>` : `<button class="btn primary" id="again">${ico('play', 18)} Next match</button>`}<button class="btn" id="club">${ico('shield', 18)} My Club</button></div>`;
+  if (promo) { confetti(); Sfx.trophy(); $('#rw', el).addEventListener('click', openClubReward); }
+  const ag = $('#again', el); if (ag) ag.addEventListener('click', rivalsMatch);
+  $('#club', el).addEventListener('click', ClubScreen);
+}
 function openClubReward() {
   const c = clubData();
   if (c.reward === null || c.reward === undefined) return;

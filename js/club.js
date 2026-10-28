@@ -74,7 +74,7 @@ function ClubScreen() {
     ${clubSeg('club')}
     <div class="club-hero">
       <div class="ch-div"><small>Rivals · ${esc(seasonName(c.season))}</small><b>Division ${c.div}</b><span>${esc(divName(c.div))}</span>
-        <div class="cc-pips">${[0, 1, 2].map((i) => `<i class="${i < c.pts ? 'on' : ''}"></i>`).join('')}<span>${c.div === 1 ? 'Top division' : `${3 - c.pts} win${3 - c.pts === 1 ? '' : 's'} to promote`}</span></div>
+        ${c.div === 1 ? '<div class="div-prog"><span>Top division</span></div>' : `<div class="div-prog"><div class="dp-bar"><i style="width:${(Math.min(c.pts, winsToPromote(c.div)) / winsToPromote(c.div)) * 100}%"></i></div><span>${c.pts}/${winsToPromote(c.div)} wins to promote</span></div>`}
         <div class="season-clock">${ico('timer', 13)} Season ends in ${seasonLeft()}</div></div>
       <div class="ch-rings"><div class="ring big" style="--p:${Math.max(0, Math.min(100, ((prof.ovr || 60) - 60) * 2.5))}%"><b>${filled ? Math.round(prof.ovr) : '–'}</b><small>OVR</small></div></div>
     </div>
@@ -116,14 +116,20 @@ async function editClubSlot(i) {
   ClubScreen();
 }
 
-// ---- Rivals ladder: win 3 to promote. A loss costs a point (you never drop a division).
+// ---- Rivals ladder: Division 10 needs 7 wins to go up, and every division above needs one more.
+// Losses never cost progress, but each division brings a tougher opponent (a better roster plus a boost).
+const RIVALS_DIV = {
+  10: { q: 0.05, boost: 0 }, 9: { q: 0.15, boost: 0.5 }, 8: { q: 0.25, boost: 1 }, 7: { q: 0.36, boost: 1.5 }, 6: { q: 0.47, boost: 2.5 },
+  5: { q: 0.58, boost: 3.5 }, 4: { q: 0.69, boost: 4.5 }, 3: { q: 0.8, boost: 5.5 }, 2: { q: 0.9, boost: 7 }, 1: { q: 0.98, boost: 8.5 },
+};
+const winsToPromote = (div) => 17 - div; // 10 -> 7, 9 -> 8, ... 2 -> 15
 function rivalsOpponent(div, seed) {
   const sorted = TE.CUR_SQ.slice().sort((a, b) => TE.squadStrength(a) - TE.squadStrength(b));
   const r = TE.rng(seed);
-  const q = Math.min(0.99, 0.03 + (10 - div) * 0.095);
-  const k = Math.max(0, Math.min(sorted.length - 1, Math.floor(q * sorted.length + (r() - 0.5) * 3)));
+  const D = RIVALS_DIV[div] || RIVALS_DIV[10];
+  const k = Math.max(0, Math.min(sorted.length - 1, Math.floor(D.q * sorted.length + (r() - 0.5) * 3)));
   const base = TE.squadTeam(sorted[k]);
-  const boost = Math.max(0, (4 - div)) * 0.6; // the top divisions bring souped-up rosters
+  const boost = D.boost; // higher divisions bring better rosters, souped up
   if (!boost) return base;
   const prof = Object.assign({}, base.prof, { off: base.prof.off + boost, def: base.prof.def + boost, ovr: base.prof.ovr + boost });
   return Object.assign({}, base, { prof, name: base.name + '+' });
@@ -142,17 +148,17 @@ function rivalsResult(r, el) {
   c.match = null;
   let promo = null;
   if (r.win) {
-    c.w++; c.sw++; c.pts++;
-    if (c.pts >= 3 && c.div > 1) { c.div--; c.pts = 0; promo = c.div; c.top = Math.min(c.top, c.div); c.sbest = Math.min(c.sbest, c.div); }
-    else if (c.pts >= 3) c.pts = 3;
-    addXP(45); Sfx.crowd(true);
-  } else { c.l++; c.sl++; c.pts = Math.max(0, c.pts - 1); addXP(15); Sfx.groan(); }
+    c.w++; c.sw++;
+    if (c.div > 1) c.pts++;
+    if (c.div > 1 && c.pts >= winsToPromote(c.div)) { c.div--; c.pts = 0; promo = c.div; c.top = Math.min(c.top, c.div); c.sbest = Math.min(c.sbest, c.div); }
+    addXP(45 + (10 - c.div) * 5); Sfx.crowd(true);
+  } else { c.l++; c.sl++; addXP(15); Sfx.groan(); }
   if (c.div <= 5) unlock('club5');
   if (c.div <= 1) unlock('club1');
   const reward = promo ? (promo <= 1 ? 2 : promo <= 4 ? 1 : 0) : null;
   if (reward !== null) c.reward = reward; // kept until opened
   Store.save();
-  $('#after', el).innerHTML = `<div class="outcome ${r.win ? 'win' : 'loss'}" style="margin-top:12px"><h2>${r.win ? 'Win' : 'Loss'} ${r.us}–${r.them}</h2><p>${promo ? `Promoted to Division ${promo}: ${esc(divName(promo))}!` : r.win ? `${3 - c.pts} more win${3 - c.pts === 1 ? '' : 's'} to promote` : 'Lost a point. Bounce back.'}</p></div>
+  $('#after', el).innerHTML = `<div class="outcome ${r.win ? 'win' : 'loss'}" style="margin-top:12px"><h2>${r.win ? 'Win' : 'Loss'} ${r.us}–${r.them}</h2><p>${promo ? `Promoted to Division ${promo}: ${esc(divName(promo))}!${promo > 1 ? ` Next up: ${winsToPromote(promo)} wins to go up again.` : ' The top division.'}` : c.div === 1 ? (r.win ? 'Holding the top division.' : 'Shake it off. You stay in Division 1.') : r.win ? `${c.pts}/${winsToPromote(c.div)} wins. ${winsToPromote(c.div) - c.pts} more to promote.` : `No progress lost. Still ${c.pts}/${winsToPromote(c.div)} wins.`}</p></div>
     ${promo ? `<div class="upgrade" style="margin-top:12px"><b>${ico('coin', 18)} Promotion reward: ${PACKS[reward].cost.toLocaleString()} coins</b><div class="mute" style="font-weight:600;font-size:13px">Enough for a ${PACKS[reward].name} pack.</div></div>` : ''}
     <div class="actions">${promo ? `<button class="btn primary" id="rw">${ico('coin', 18)} Claim ${PACKS[reward].cost.toLocaleString()} coins</button>` : `<button class="btn primary" id="again">${ico('play', 18)} Next match</button>`}<button class="btn" id="club">${ico('shield', 18)} My Club</button></div>`;
   if (promo) { confetti(); Sfx.trophy(); $('#rw', el).addEventListener('click', openClubReward); }

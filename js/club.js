@@ -119,8 +119,8 @@ async function editClubSlot(i) {
 // ---- Rivals ladder: Division 10 needs 7 wins to go up, and every division above needs one more.
 // Losses never cost progress, but each division brings a tougher opponent (a better roster plus a boost).
 const RIVALS_DIV = {
-  10: { q: 0.05, boost: 0 }, 9: { q: 0.15, boost: 0.5 }, 8: { q: 0.25, boost: 1 }, 7: { q: 0.36, boost: 1.5 }, 6: { q: 0.47, boost: 2.5 },
-  5: { q: 0.58, boost: 3.5 }, 4: { q: 0.69, boost: 4.5 }, 3: { q: 0.8, boost: 5.5 }, 2: { q: 0.9, boost: 7 }, 1: { q: 0.98, boost: 8.5 },
+  10: { q: 0.4, boost: 1.5 }, 9: { q: 0.45, boost: 2 }, 8: { q: 0.5, boost: 2.5 }, 7: { q: 0.55, boost: 3 }, 6: { q: 0.6, boost: 3.5 },
+  5: { q: 0.66, boost: 4 }, 4: { q: 0.72, boost: 4.5 }, 3: { q: 0.78, boost: 5 }, 2: { q: 0.84, boost: 5.5 }, 1: { q: 0.9, boost: 6 },
 };
 const winsToPromote = (div) => 17 - div; // 10 -> 7, 9 -> 8, ... 2 -> 15
 function rivalsOpponent(div, seed) {

@@ -1026,3 +1026,7 @@ html, body { overflow-x: clip; }
 .div-prog .dp-bar { width: 170px; max-width: 100%; height: 8px; border-radius: 8px; background: rgba(255,255,255,.18); overflow: hidden; }
 .div-prog .dp-bar i { display: block; height: 100%; border-radius: 8px; background: linear-gradient(90deg, #ffe08a, #ffbf1f); transition: width .5s; }
 .div-prog span { display: block; margin-top: 5px; font-size: 12px; font-weight: 700; color: #c9d2f0; }
+/* online room: connection light */
+.net-pill { color: var(--mint); }
+.net-pill.bad { color: var(--orange); }
+.net-pill.bad .ico { animation: dotPulse 1s ease-in-out infinite; }

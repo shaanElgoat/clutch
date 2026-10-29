@@ -10,7 +10,8 @@
 const NET_DB = BOARD_URL;
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const MAX_ROOM = 4;
-const GONE_MS = 35000;
+const GONE_MS = 35000;   // shown as "Away" (and covered by the CPU mid-draft) after this
+const PRUNE_MS = 300000; // only removed from a lobby after 5 minutes away
 
 const Net = {
   active: false, code: null, room: {}, es: null, hb: null, ver: 0, inGame: false, seen: {},
@@ -79,9 +80,15 @@ const Net = {
   beat() {
     if (!this.active) return;
     this.req('PUT', this.code + '/members/' + this.myId + '/seen', { '.sv': 'timestamp' }).catch((e) => {
-      // we were removed from the room (pruned while away): drop back out
-      if (e.status === 401 || e.status === 403) { this.leave(true); toast('You were removed from the room'); goTab('play'); }
+      // we were tidied out of the room while away: quietly put ourselves back instead of kicking the player
+      if (e.status === 401 || e.status === 403) this.rejoin();
     });
+  },
+  rejoin() {
+    if (!this.active) return;
+    const name = cleanName(Store.data.name || 'Player');
+    this.req('PATCH', this.code + '/members/' + this.myId, { name, j: { '.sv': 'timestamp' }, seen: { '.sv': 'timestamp' } })
+      .catch(() => { this.leave(true); toast('The room closed'); goTab('play'); });
   },
   stop() {
     if (this.es) { try { this.es.close(); } catch (_) {} this.es = null; }
@@ -119,6 +126,9 @@ const Net = {
     };
     es.addEventListener('put', (ev) => apply(ev, false));
     es.addEventListener('patch', (ev) => apply(ev, true));
+    // connection light in the lobby: the browser reconnects on its own, we just show it
+    es.onopen = () => this.setConn(true);
+    es.onerror = () => { this.setConn(false); if (es.readyState === 2) setTimeout(() => { if (this.active && this.es === es) this.listen(); }, 2000); };
     es.addEventListener('cancel', () => { toast('Lost the room. Rejoin from Play with friends.'); this.leave(true); goTab('play'); });
   },
   onRoom() {
@@ -149,11 +159,19 @@ const Net = {
       return;
     }
     if (meta.status === 'lobby') {
-      if (this.inGame) { this.inGame = false; Lobby(); return; }
-      if (App.screen === 'lobby' || App.screen === 'joining') Lobby();
-      // the host tidies up anyone who has been gone a while
-      if (this.isHost) this.list().filter((x) => x.gone && x.id !== this.myId).forEach((x) => this.req('DELETE', this.code + '/members/' + x.id).catch(() => {}));
+      if (this.inGame) { this.inGame = false; this.sig = null; Lobby(); return; }
+      // only redraw the lobby when something you can see changed (heartbeats arrive every 10s and used to redraw it)
+      if ((App.screen === 'lobby' && this.lobbySig() !== this.sig) || App.screen === 'joining') Lobby();
+      // the host tidies up anyone who has been gone for a long time (5 minutes, not 35s,
+      // so switching apps to text your friends the code never gets you kicked)
+      if (this.isHost) this.list().filter((x) => x.id !== this.myId && this.seen[x.id] && Date.now() - this.seen[x.id].at > PRUNE_MS).forEach((x) => this.req('DELETE', this.code + '/members/' + x.id).catch(() => {}));
     }
+  },
+  lobbySig() { return JSON.stringify([this.list().map((x) => [x.id, x.name, x.gone]), this.hostId, this.blind]); },
+  setConn(ok) {
+    this.conn = ok;
+    const p = document.getElementById('netPill');
+    if (p) { p.classList.toggle('bad', !ok); p.lastChild.textContent = ok ? ' Live' : ' Reconnecting…'; }
   },
 
   // ----- game -----
@@ -197,6 +215,7 @@ const cleanName = (n) => (String(n || '').trim().slice(0, 14) || 'Player');
 // phones pause background pages: say hello again the moment the app comes back
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || !Net.active) return;
+  if (!Net.hb) Net.hb = setInterval(() => Net.beat(), 10000);
   Net.beat();
   if (!Net.es || Net.es.readyState === 2) Net.listen();
 });
@@ -241,10 +260,11 @@ function OnlineScreen() {
 
 function Lobby() {
   App.g = null;
+  Net.sig = Net.lobbySig();
   const mem = Net.list();
   const here = mem.filter((m) => !m.gone);
   const el = go(`
-    <div class="topbar"><button class="icon-btn" id="leave">${ICON.back}</button><h2 class="d grow">Room</h2><span class="pill">${ico('globe', 14)} Live</span></div>
+    <div class="topbar"><button class="icon-btn" id="leave">${ICON.back}</button><h2 class="d grow">Room</h2><span class="pill net-pill ${Net.conn === false ? 'bad' : ''}" id="netPill">${ico('globe', 14)}<span>${Net.conn === false ? ' Reconnecting…' : ' Live'}</span></span></div>
     <div class="room-code"><small>Room code</small><b>${esc(Net.code || '')}</b><span>Friends join from Play with friends, on any network</span></div>
     <div class="two" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px"><button class="btn small" id="copy" style="width:100%">${ico('share', 16)} Copy link</button><button class="btn small" id="shr" style="width:100%">${ico('users', 16)} Invite</button></div>
     <div class="group-title">Players (${here.length}/${MAX_ROOM})</div>

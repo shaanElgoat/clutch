@@ -329,16 +329,24 @@
     const o = sc.options.find((x) => x.id === optId) || sc.options[0];
     let pts = 0, theirs = 0, text;
     if (sc.side === 'off') {
-      if (u < o.td) { pts = 7; text = o.id === 'air' ? 'Dropped in the bucket. TOUCHDOWN!' : o.id === 'te' ? 'Over the middle and in. TOUCHDOWN!' : 'Pounds it in. TOUCHDOWN!'; }
-      else if (u < o.td + o.fg) { pts = 3; text = 'The kick is up… and it\'s GOOD!'; }
-      else text = o.id === 'kick' ? 'Wide right. No good.' : o.id === 'ground' ? 'Stuffed, and the kick misses.' : 'Incomplete. Turnover on downs.';
+      if (u < o.td) {
+        // down 8: the touchdown comes with a two-point try to tie (and those 2 points really go on the board)
+        pts = sc.m <= -8 ? 8 : 7;
+        text = (o.id === 'air' ? 'Dropped in the bucket. TOUCHDOWN!' : o.id === 'te' ? 'Over the middle and in. TOUCHDOWN!' : 'Pounds it in. TOUCHDOWN!') + (pts === 8 ? ' And the two-point try is good!' : '');
+      } else if (u < o.td + o.fg) {
+        pts = 3;
+        text = sc.m + 3 >= 0 ? 'The kick is up… and it\'s GOOD!' : 'The kick is good… but a field goal isn\'t enough.';
+      } else text = o.id === 'kick' ? 'Wide right. No good.' : o.id === 'ground' ? 'Stuffed, and the kick misses.' : 'Incomplete. Turnover on downs.';
     } else {
       if (u < o.stop) text = o.id === 'blitz' ? 'SACK! Ball game.' : o.id === 'cover' ? 'INTERCEPTED! Ball game.' : 'Fourth-down stop. Ball game.';
-      else { theirs = sc.m <= 3 ? 3 : 7; text = theirs === 3 ? 'They drive and kick the field goal.' : 'They find the end zone.'; }
+      else {
+        // up 8: their touchdown comes with a two-point try to tie
+        theirs = sc.m <= 3 ? 3 : sc.m >= 8 ? 8 : 7;
+        text = theirs === 3 ? 'They drive and kick the field goal.' : theirs === 8 ? 'They find the end zone and convert the two-point try.' : 'They find the end zone.';
+      }
     }
+    // the final margin is exactly what went on the scoreboard; a tie goes to overtime
     let m = sc.m + pts - theirs, ot = false;
-    if (sc.side === 'def' && sc.m >= 7 && theirs === 7) m = 0; // they tie it with the two-point try
-    if (sc.side === 'off' && pts === 7 && sc.m <= -8) m = 0;  // TD + two to tie
     let win;
     if (m === 0) { ot = true; win = u2 < sc.pOT; text += win ? ' Then you win it in overtime!' : ' Then they win it in overtime.'; }
     else win = m > 0;
@@ -352,9 +360,13 @@
     let sa = 0, sb = 0;
     const q = [[0, 0], [0, 0], [0, 0], [0, 0]];
     const ev = []; // {t, s: 0 = a / 1 = b, pts}
-    const QN = [3, 2, 3, 2], QK = [0, 3, 5, 8];
-    for (let i = 0; i < SIM.POSS - 1; i++) {
-      const qa = Math.min(3, Math.floor(i / 2.5));
+    // spread the regulation drives over the four quarters for ANY number of possessions,
+    // so every regulation score lands before the 2:00 warning (the Clutch Call starts at 2:00)
+    const NP = SIM.POSS - 1, qOf = (i) => Math.min(3, Math.floor((i * 4) / NP));
+    const QN = [0, 0, 0, 0], QK = [-1, -1, -1, -1];
+    for (let i = 0; i < NP; i++) { const qq = qOf(i); QN[qq]++; if (QK[qq] < 0) QK[qq] = i; }
+    for (let i = 0; i < NP; i++) {
+      const qa = qOf(i);
       const x = drive(r, A.off, B.def, A.k), y = drive(r, B.off, A.def, B.k);
       sa += x; sb += y; q[qa][0] += x; q[qa][1] += y;
       // the last regulation drives end before the 2:00 warning

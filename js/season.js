@@ -344,6 +344,7 @@ function liveCard(box, e, o, done) {
     const yd = 3 + Math.floor(R() * 42), fg = 24 + Math.floor(R() * 30), u = R();
     const qb = name(xi, 'QB'), rb = name(xi, 'RB'), wr = name(xi, 'WR', Math.floor(R() * 2)), te = name(xi, 'TE'), k = name(xi, 'K');
     if (p.pts === 3) return `${k || 'The kicker'} drills a ${fg}-yd field goal`;
+    if (p.pts === 8) return `${qb || 'The QB'} finds the end zone, and the two-point try is good`;
     if (p.pts !== 7 && p.pts !== 6) return 'Score';
     if (u < 0.45 && qb && wr) return `${qb} finds ${wr} for a ${yd}-yd TD`;
     if (u < 0.65 && qb && te) return `${qb} hits ${te}, ${Math.min(yd, 25)}-yd TD`;

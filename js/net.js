@@ -1,12 +1,14 @@
 'use strict';
 // Online rooms over MQTT (a real-time messaging server): every phone keeps ONE live WebSocket to the broker.
-//   CODE/state   retained: the whole room {v, host, status, blind, members:[{id,name}], game:{ids, st}}
-//   CODE/in      messages to the host: join / pick / leave
-//   CODE/p/ID    retained presence. The broker itself clears it the moment a phone disconnects (last will),
+// Nothing waits on the host's phone, because the host is usually the one off in Messages texting the code:
+//   CODE/m/ID    retained membership {name, j}. You add YOURSELF to the room, so joining works even when
+//                the host's app is in the background, and up to 4 players can be in at once.
+//   CODE/p/ID    retained presence. The broker clears it the moment a phone disconnects (last will),
 //                so "who is here" is always true, and only people who are here count toward the 4 spots.
-// The host's phone runs the room (validates picks, publishes the board). If the host goes, the next
-// player who is here takes over automatically: the retained state means nothing is lost.
-// Two public brokers: the first letter of the room code says which one a room lives on.
+//   CODE/state   retained room state {v, host, status, blind, game:{ids, st}}. The player on the clock posts
+//                their own pick straight to it (v+1), so a host checking a text never freezes the draft.
+// The host only starts the draft, sets the rules and covers absent players; if the host goes, the next
+// player who is here takes over automatically. Two public brokers: the code's first letter picks one.
 const MQ_LIB = 'https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js';
 const MQ_BROKERS = ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt'];
 const MQ_FIRST = ['ABCDEFGHJK', 'MNPQRSTUVW'];
@@ -15,18 +17,22 @@ const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const MAX_ROOM = 4;
 const HOST_GRACE = 6000;   // host missing this long -> the next player takes over
 const COVER_MS = 15000;    // a player gone this long mid-draft gets CPU picks
-const PRUNE_MS = 90000;    // gone this long in the lobby -> their spot is freed
+const PRUNE_MS = 120000;   // gone this long in the lobby -> their spot is freed
 
 const Net = {
-  active: false, client: null, code: null, state: null, pres: {}, goneSince: {}, inGame: false, conn: true,
+  active: false, client: null, code: null, state: null, recs: {}, pres: {}, goneSince: {}, inGame: false, conn: true,
   get myId() { return Board.id(); },
   get peer() { return this.active; }, // older callers check Net.peer
   get isHost() { return !!(this.state && this.state.host === this.myId); },
   get blind() { return !!(this.state && this.state.blind); },
   get hostId() { return this.state && this.state.host; },
-  here(id) { return id === this.myId || !!this.pres[id]; },
+  here(id) { return id === this.myId ? this.active : !!this.pres[id]; },
   isIdGone(id) { return !this.here(id); },
-  list() { return ((this.state && this.state.members) || []).map((m) => ({ id: m.id, name: m.name, gone: !this.here(m.id) })); },
+  // everyone with a membership record, in join order
+  list() {
+    return Object.keys(this.recs).map((id) => ({ id, name: this.recs[id].name, j: this.recs[id].j || 0, gone: !this.here(id) }))
+      .sort((a, b) => a.j - b.j || (a.id < b.id ? -1 : 1));
+  },
   get members() { return this.list(); },
   t: (code, k) => MQ_NS + code + '/' + k,
 
@@ -42,6 +48,7 @@ const Net = {
   async connect(code, name) {
     await this.loadLib();
     this.stop();
+    Object.assign(this, { state: null, recs: {}, pres: {}, goneSince: {} });
     const b = this.brokerFor(code), me = this.myId;
     const presT = this.t(code, 'p/' + me);
     return new Promise((resolve, reject) => {
@@ -54,7 +61,7 @@ const Net = {
       const fail = setTimeout(() => { if (first) { first = false; client.end(true); reject(new Error("Can't reach the game server. Check your internet.")); } }, 9000);
       client.on('connect', () => {
         this.setConn(true);
-        client.subscribe([this.t(code, 'state'), this.t(code, 'p/+'), this.t(code, 'in')], { qos: 1 });
+        client.subscribe([this.t(code, 'state'), this.t(code, 'p/+'), this.t(code, 'm/+')], { qos: 1 });
         client.publish(presT, JSON.stringify({ name, t: Date.now() }), { retain: true, qos: 1 });
         if (first) { first = false; clearTimeout(fail); resolve(); }
       });
@@ -68,6 +75,7 @@ const Net = {
     if (this.tick) { clearInterval(this.tick); this.tick = null; }
   },
   pub(k, obj, retain) { if (this.client) this.client.publish(this.t(this.code, k), obj === null ? '' : JSON.stringify(obj), { retain: !!retain, qos: 1 }); },
+  addMe(name) { this.recs[this.myId] = { name, j: (this.recs[this.myId] && this.recs[this.myId].j) || Date.now() }; this.pub('m/' + this.myId, this.recs[this.myId], true); },
 
   // ----- create / join / leave -----
   async hostRoom(name) {
@@ -76,9 +84,10 @@ const Net = {
       const code = MQ_FIRST[b][Math.floor(Math.random() * MQ_FIRST[b].length)] + Array.from({ length: 4 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
       try { await this.connect(code, name); } catch (e) { if (k === 3) throw e; continue; }
       await sleep(900); // a room with this code already? (its retained state would have arrived)
-      if (this.state) { this.stop(); this.state = null; continue; }
+      if (this.state) { this.stop(); continue; }
       this.begin(code);
-      this.setState({ v: 1, host: this.myId, status: 'lobby', blind: false, members: [{ id: this.myId, name }], game: null });
+      this.addMe(name);
+      this.setState({ v: 1, host: this.myId, status: 'lobby', blind: false, game: null });
       return code;
     }
     throw new Error("Can't reach the game server. Check your internet.");
@@ -86,28 +95,24 @@ const Net = {
   async joinRoom(code, name) {
     code = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
     if (code.length !== 5) throw new Error('Room codes are 5 characters.');
-    this.state = null;
     await this.connect(code, name);
     for (let i = 0; i < 25 && !this.state; i++) await sleep(200);
+    await sleep(300); // let the member and presence records arrive too
     if (!this.state) { this.stop(); throw new Error('Room not found. Check the code.'); }
-    const st = this.state, mine = st.members.some((m) => m.id === this.myId);
+    const st = this.state, mine = !!this.recs[this.myId];
     if (!mine) {
       const inDraft = st.status === 'draft' && st.game && st.game.ids.includes(this.myId);
       if (st.status === 'draft' && !inDraft) { this.stop(); throw new Error('That room is mid-draft. Try again after.'); }
-      if (st.members.filter((m) => this.here(m.id)).length >= MAX_ROOM) { this.stop(); throw new Error('That room is full.'); }
+      if (this.list().filter((m) => !m.gone).length >= MAX_ROOM) { this.stop(); throw new Error('That room is full.'); }
     }
     this.begin(code);
-    if (!mine) this.pub('in', { t: 'join', id: this.myId, name });
+    this.addMe(name);
     // nobody else is here (everyone closed the app)? then this phone picks the room up
-    await sleep(2500);
-    if (this.active && !this.state.members.some((m) => m.id === this.myId)) {
-      if (!this.state.members.some((m) => this.here(m.id) && m.id !== this.myId)) this.takeOver(true);
-      else if (!this.state.members.some((m) => m.id === this.myId)) { this.leave(); throw new Error("The host didn't answer. Try again."); }
-    }
+    if (!this.list().some((m) => m.id !== this.myId && !m.gone)) this.takeOver();
     return code;
   },
   begin(code) {
-    Object.assign(this, { active: true, code, inGame: false, goneSince: {} });
+    Object.assign(this, { active: true, code, inGame: false });
     Store.data.room = { code }; Store.save();
     this.tick = setInterval(() => this.housekeep(), 2000);
   },
@@ -115,18 +120,18 @@ const Net = {
     const wasHost = this.isHost, st = this.state;
     if (this.client && this.code) {
       this.pub('p/' + this.myId, null, true);
-      if (st) {
-        const others = st.members.filter((m) => m.id !== this.myId && this.here(m.id));
-        if (!others.length) this.pub('state', null, true); // last one out clears the room
-        else if (wasHost) this.setState(Object.assign({}, st, { host: others[0].id, members: st.status === 'lobby' ? st.members.filter((m) => m.id !== this.myId) : st.members }));
-        else if (st.status === 'lobby') this.pub('in', { t: 'leave', id: this.myId });
+      const others = this.list().filter((m) => m.id !== this.myId && !m.gone);
+      if (!others.length) { this.pub('state', null, true); this.list().forEach((m) => this.pub('m/' + m.id, null, true)); } // last one out clears the room
+      else {
+        if (!st || st.status === 'lobby') this.pub('m/' + this.myId, null, true);
+        if (wasHost && st) this.setState(Object.assign({}, st, { host: others[0].id, v: st.v + 1 }));
       }
     }
     const c = this.client;
     this.client = null;
     if (this.tick) { clearInterval(this.tick); this.tick = null; }
     if (c) setTimeout(() => { try { c.end(); } catch (_) {} }, 400);
-    Object.assign(this, { active: false, code: null, state: null, pres: {}, inGame: false });
+    Object.assign(this, { active: false, code: null, state: null, recs: {}, pres: {}, inGame: false });
     Store.data.room = null; Store.save();
   },
   reset() { this.leave(); },
@@ -144,33 +149,16 @@ const Net = {
       const id = k.slice(2);
       if (raw) { this.pres[id] = true; delete this.goneSince[id]; } else { delete this.pres[id]; this.goneSince[id] = Date.now(); }
       if (this.active) this.onPresence();
-    } else if (k === 'in' && this.active && this.isHost) {
-      let m; try { m = JSON.parse(raw); } catch (_) { return; }
-      this.hostHandle(m);
+    } else if (k.startsWith('m/')) {
+      const id = k.slice(2);
+      if (raw) { try { this.recs[id] = JSON.parse(raw); } catch (_) { return; } }
+      else if (id === this.myId && this.active) { this.addMe(this.name); return; } // tidied out while away: put ourselves back
+      else delete this.recs[id];
+      if (this.active) this.onPresence();
     }
   },
   setState(s) { this.state = s; this.pub('state', s, true); this.onState(); },
   bump(changes) { this.setState(Object.assign({}, this.state, changes, { v: this.state.v + 1 })); },
-
-  // the host's job: admit players, validate picks
-  hostHandle(m) {
-    const st = this.state;
-    if (m.t === 'join' && st.status === 'lobby' && !st.members.some((x) => x.id === m.id)) {
-      // free spots taken by people who are no longer here, then admit if there's room
-      const kept = st.members.filter((x) => this.here(x.id));
-      if (kept.length >= MAX_ROOM) return;
-      this.bump({ members: kept.concat([{ id: m.id, name: cleanName(m.name) }]) });
-      toast(cleanName(m.name) + ' joined');
-    } else if (m.t === 'leave' && st.status === 'lobby') {
-      this.bump({ members: st.members.filter((x) => x.id !== m.id) });
-    } else if (m.t === 'pick' && st.status === 'draft' && st.game) {
-      const idx = st.game.ids.indexOf(m.id), dst = st.game.st;
-      // m.n = where this pick sits in the draft log, so a pick made on an out-of-date board is ignored
-      if (idx < 0 || m.n !== dst.log.length || TE.currentManager(dst) !== idx) return;
-      if (TE.pick(dst, idx, +m.pid, +m.slot)) return;
-      this.bump({ game: { ids: st.game.ids, st: dst } });
-    }
-  },
   onPresence() {
     if (!this.state) return;
     if (App.screen === 'lobby' && this.lobbySig() !== this.sig) Lobby();
@@ -183,20 +171,16 @@ const Net = {
     const host = st.host;
     if (!this.here(host)) {
       const since = this.goneSince[host] || (this.goneSince[host] = Date.now());
-      const next = st.members.find((m) => this.here(m.id));
-      if (next && next.id === this.myId && Date.now() - since > HOST_GRACE) this.takeOver(false);
+      const next = this.list().find((m) => !m.gone);
+      if (next && next.id === this.myId && Date.now() - since > HOST_GRACE) this.takeOver();
     }
     if (!this.isHost) return;
-    if (st.status === 'lobby') {
-      const kept = st.members.filter((m) => this.here(m.id) || !this.goneSince[m.id] || Date.now() - this.goneSince[m.id] < PRUNE_MS);
-      if (kept.length !== st.members.length) this.bump({ members: kept });
-    }
+    if (st.status === 'lobby') this.list().forEach((m) => { if (m.gone && this.goneSince[m.id] && Date.now() - this.goneSince[m.id] > PRUNE_MS) { this.pub('m/' + m.id, null, true); delete this.recs[m.id]; } });
     if (st.status === 'draft' && App.g && App.g.online && !App.g.finished) maybeCpu();
   },
-  takeOver(addMe) {
-    const st = this.state;
-    const members = addMe && !st.members.some((m) => m.id === this.myId) ? st.members.concat([{ id: this.myId, name: cleanName(Store.data.name || 'Player') }]) : st.members;
-    this.bump({ host: this.myId, members });
+  takeOver() {
+    if (!this.state || this.isHost) return;
+    this.bump({ host: this.myId });
     toast("You're the host now");
   },
   onState() {
@@ -206,9 +190,9 @@ const Net = {
       if (me < 0) return;
       if (!this.inGame || !App.g || !App.g.online) { this.inGame = true; startOnline(JSON.parse(JSON.stringify(st.game.st)), me); return; }
       const g = App.g, dst = st.game.st;
-      if (dst.log.length >= g.st.log.length || g.pending) {
+      if (dst.log.length > g.st.log.length || (dst.log.length === g.st.log.length && JSON.stringify(dst.log) !== JSON.stringify(g.st.log))) {
         const last = dst.log[dst.log.length - 1];
-        if (dst.log.length > g.st.log.length && last && last.t === 'pick') { g.lastPlaced = { mi: last.m, slot: last.slot }; if (last.m !== g.me) Sfx.place(); }
+        if (last && last.t === 'pick') { g.lastPlaced = { mi: last.m, slot: last.slot }; if (last.m !== g.me) Sfx.place(); }
         g.st = JSON.parse(JSON.stringify(dst)); g.pending = false;
         if (!g.finished) draftUpdate();
       }
@@ -216,7 +200,7 @@ const Net = {
     }
     if (st.status === 'lobby') {
       if (this.inGame) { this.inGame = false; Lobby(); return; }
-      if (App.screen === 'joining' && st.members.some((m) => m.id === this.myId)) { Lobby(); return; }
+      if (App.screen === 'joining' && this.recs[this.myId]) { Lobby(); return; }
       if (App.screen === 'lobby' && this.lobbySig() !== this.sig) Lobby();
     }
   },
@@ -229,28 +213,16 @@ const Net = {
 
   // ----- game -----
   startGame() {
-    const present = this.list().filter((x) => !x.gone);
+    const present = this.list().filter((x) => !x.gone).slice(0, MAX_ROOM);
     if (present.length < 2) { toast('Need at least 2 players'); return; }
     const seed = 'o:' + this.code + ':' + Date.now().toString(36);
     const dst = TE.createDraft({ seed, blind: this.blind, managers: present.map((x) => ({ name: x.name })) });
-    this.bump({ status: 'draft', members: present.map((x) => ({ id: x.id, name: x.name })), game: { ids: present.map((x) => x.id), st: dst } });
+    this.bump({ status: 'draft', game: { ids: present.map((x) => x.id), st: dst } });
   },
-  // after a local pick: the host publishes the new board; anyone else sends the pick to the host
+  // after a local pick (yours, or a CPU pick the host made for someone absent): post the new board
   broadcastState(st) {
     if (!this.state || !this.state.game) return;
-    if (this.isHost) { this.bump({ game: { ids: this.state.game.ids, st } }); return; }
-    let n = st.log.length - 1;
-    while (n >= 0 && st.log[n].t !== 'pick') n--;
-    if (n < 0) return;
-    this.pub('in', { t: 'pick', id: this.myId, pid: st.log[n].pid, slot: st.log[n].slot, n });
-    if (!App.g) return;
-    App.g.pending = true;
-    // if the host didn't take it (someone else's board was newer), snap back to the real board
-    later(() => {
-      const g = App.g;
-      if (!g || !g.online || !g.pending || !this.state || !this.state.game) return;
-      g.pending = false; g.st = JSON.parse(JSON.stringify(this.state.game.st)); draftUpdate();
-    }, 4000);
+    this.bump({ game: { ids: this.state.game.ids, st: JSON.parse(JSON.stringify(st)) } });
   },
   // the host covers anyone who has been gone a while mid-draft
   coverFor(mi) {
@@ -291,7 +263,7 @@ function OnlineScreen() {
   });
   const join = async (code) => {
     busy(true); status('Joining…'); App.screen = 'joining';
-    try { await Net.joinRoom(code, name()); if (App.screen === 'joining' && Net.state && Net.state.status === 'lobby') Lobby(); }
+    try { await Net.joinRoom(code, name()); if (App.screen === 'joining' && Net.state && Net.state.status === 'lobby') Lobby(); else if (App.screen === 'joining') Net.onState(); }
     catch (e) { App.screen = 'online'; status(e.message); busy(false); }
   };
   $('#join', el).addEventListener('click', () => join($('#code', el).value));

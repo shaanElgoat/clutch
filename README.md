@@ -53,7 +53,7 @@ Cards come only from packs bought with coins (drafting, puzzles and rewards neve
 - `js/arena.js`: Draft Duel and Salary Cap. `liveCard` and `playLiveMatch` in `js/season.js` play any game live.
 
 ## Balance notes
-- Season (realistic): `SIM` POSS 13, TD 0.17, TDK 0.08, OPP 4.5, RS 0.4 (regular-season parity: ratings squeezed toward MID 91, so upsets happen), PS 1.5 (playoffs widen rating gaps so the better team usually wins), with no hidden playoff boost. A good draft averages about 10.7 wins, scores about 24-19, makes the playoffs 80% of the time and wins the ring about 12%. Super Bowl rate by record: 9-10 wins 4%, 11-12 13%, 13-14 30%, 15-16 ~45%, and 17-0 is extremely rare. Check with `node test/realism.js 600`.
+- Season (realistic): `SIM` POSS 13, TD 0.17, TDK 0.08, OPP 4.5, RS 0.4 (regular-season parity: ratings squeezed toward MID 91, so upsets happen), PS 1.5 (playoffs widen rating gaps so the better team usually wins), with a small playoff edge for the CPU (POK 0.06). A good draft averages about 10.6 wins, scores about 24-19, makes the playoffs about 80% of the time and wins the ring about 8%. Super Bowl rate by record: 9-10 wins 4%, 11-12 7%, 13-14 24%, 15-16 ~38%, and 17-0 is extremely rare. Check with `node test/realism.js 600`.
 - Gameday vs the #1 team: smart play-calling wins 82%, random calling 55%, the auto-coordinator 47%. Reading the defense matters.
 - Salary Cap (smart spending): wins the first round 72% of the time and the title about 6%. Draft Duel series win rate: 81% vs Rookie, 53% vs Pro, 32% vs The Shark.
 - Easier arcade: Kick It has a slower aim, a smaller wind effect and a wider window. Who's Better starts at 10s, with a 5s minimum. Gameday Rookie opponents come from the bottom 30% of teams.

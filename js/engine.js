@@ -262,7 +262,7 @@
   }
 
   // ---------- game simulation ----------
-  const SIM = { TD: 0.17, TDK: 0.08, FG: 0.15, HOME: 1.5, POSS: 13, OPP: 4.5, SPINW: 0.18, POK: 0, RS: 0.4, PS: 1.5, MID: 91 };
+  const SIM = { TD: 0.17, TDK: 0.08, FG: 0.15, HOME: 1.5, POSS: 13, OPP: 4.5, SPINW: 0.18, POK: 0.06, RS: 0.4, PS: 1.5, MID: 91 };
   // playoff CPU teams play above their rating, round by round: the ring should be almost impossible
   const PO_BOOST = { 'Wild Card': 4, 'Divisional': 8, 'Conference Championship': 12, 'Super Bowl': 17 };
   function drive(r, off, def, k) {

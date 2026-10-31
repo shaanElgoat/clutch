@@ -42,6 +42,7 @@ function Draft() {
     <div id="dTurn"></div>
     <div class="turf" id="dField"></div>
     <div class="panel"><div class="spinbox" id="dSpin"></div><div class="squad" id="dSquad"></div></div>`, 'draft');
+  tipOnce('draft');
   draftUpdate();
 }
 

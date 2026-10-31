@@ -92,6 +92,7 @@ function ClubScreen() {
     <div class="season-rw">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((d) => `<div class="${d === c.sbest ? 'on' : ''}"><b>Div ${d}</b><small>${SEASON_COINS[d].toLocaleString()}</small></div>`).join('')}</div>
     <p class="mute center" style="font-weight:600;font-size:12px;margin:8px 0 0">Paid at the end of the month for the best division you reach. Then everyone resets to Division 10.</p>
     <p class="mute center" style="font-weight:600;font-size:12.5px;margin:12px 0 0">${ownedIds().length} cards owned</p>`, 'has-tabs');
+  tipOnce('club');
   tabbar('club');
   // every slot opens your binder for that position
   TE.LINEUP.forEach((s, i) => {

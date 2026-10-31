@@ -290,6 +290,7 @@ function Lobby() {
     ${Net.isHost ? `<button class="btn primary big" id="start" ${here.length < 2 ? 'disabled' : ''}>${here.length < 2 ? 'Waiting for friends…' : ico('play', 18) + ' Start draft'}</button>` : '<div class="mute center" style="padding:14px;font-weight:700">Waiting for the host to start…</div>'}
     <p class="mute center" style="font-size:12px;font-weight:600;margin:10px 0 0">You can switch apps or lock your phone. You'll stay in the room.</p>`);
   App.screen = 'lobby';
+  tipOnce('lobby');
   $('#leave', el).addEventListener('click', () => { Net.leave(); goTab('play'); });
   $('#copy', el).addEventListener('click', async () => { try { await navigator.clipboard.writeText(Net.link()); toast('Invite link copied'); } catch (_) { toast(Net.link()); } });
   $('#shr', el).addEventListener('click', async () => {

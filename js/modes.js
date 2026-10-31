@@ -197,6 +197,7 @@ function GamedayGame(xi, opp, diff, opts) {
     $('#opp', el).addEventListener('click', () => GamedayOpp(xi, opts.mods));
     $('#share', el).addEventListener('click', () => shareOut(`CLUTCH Gameday 🏈📋\n${r.win ? 'W' : 'L'} ${r.us}-${r.them} vs ${opp.name} (${diff})\nI called every play. MVP: ${r.mvp}`));
   }
+  if (!opts.drill) tipOnce('gameday');
   drawField(); drawBoard(false);
   $('#pres', el).innerHTML = !fresh ? '<h3>Welcome back</h3><p>Picking up right where you left off.</p>' : opts.drill ? `<h3>2:00 left</h3><p>Down ${opts.drill.deficit}. Go win it.</p>` : `<h3>Kickoff!</h3><p>You receive. Call your first play.</p>`;
   deck();
@@ -227,6 +228,7 @@ function WhosBetter(resumeStreak) {
     <div class="timer"><i id="tbar"></i></div>
     <div class="hl-sub" id="hsub">Real career numbers, regular season</div>
     <div id="over"></div></div>`);
+  tipOnce('hl');
   // pairs get closer together as the streak grows
   const pick = () => {
     const cats = STAT_CATS.filter((c) => c.id !== s.lastCat);

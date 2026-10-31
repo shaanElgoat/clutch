@@ -36,6 +36,7 @@ function SeasonScreen(ctx) {
     <div class="ticker" id="tick"></div>
     <div class="live-ctl">${multi ? '' : `<button class="btn" id="spd">${ico('bolt', 16)} <span>1x</span></button>`}<button class="btn skip" id="skip">Skip to the end ▸▸</button></div>`);
   const tick = $('#tick', el);
+  if (!multi) tipOnce('season');
   const live = ctx.users.map(() => ({ w: 0, l: 0, pos: null, cw: 0, ct: 0, stage: '' }));
   const addRow = (html, cls) => { const d = document.createElement('div'); d.className = 'mrow ' + (cls || ''); d.innerHTML = html; tick.insertBefore(d, tick.firstChild); };
   const shows = (i, e) => { const h2h = e.oppKey && e.oppKey[0] === 'U'; return !multi || e.comp === 'P' || e.clutch || (h2h && i < +e.oppKey.slice(1)); };
@@ -168,6 +169,7 @@ function showClutch(sc, meName, resolve, onContinue) {
         <div class="odds"><div class="bar"><i style="width:${Math.round(p * 100)}%;background:${col}"></i></div><span style="color:${col}">${lbl}</span></div>
         <div class="note">${esc(o.note)}${o.id === 'ground' ? ' · falls back to a FG try' : ''}</div></button>`;
     }).join('')}</div>`);
+  tipOnce('clutch');
   Sfx.heartbeat(); buzz([60, 80, 60]);
   $$('.call', el).forEach((b) => b.addEventListener('click', () => {
     if (el.dataset.busy) return; el.dataset.busy = 1;

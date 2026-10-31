@@ -22,6 +22,7 @@ const Store = {
       Object.keys(this.data.sets).forEach((k) => { if (/-now$/.test(k)) { this.data.sets[k.replace(/-now$/, '-25')] = 1; delete this.data.sets[k]; } });
       this.data.dv = 3;
     }
+    if (d && d.seenHelp && this.data.toured === undefined) { this.data.toured = true; this.data.tips = { all: true }; }
     if (this.data.dv < 4) {
       // the binder now only holds cards from packs bought with coins: wipe it once and tell the player
       const had = d && d.coll && Object.keys(d.coll).length > 0;

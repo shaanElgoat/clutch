@@ -1030,3 +1030,25 @@ html, body { overflow-x: clip; }
 .net-pill { color: var(--mint); }
 .net-pill.bad { color: var(--orange); }
 .net-pill.bad .ico { animation: dotPulse 1s ease-in-out infinite; }
+
+/* ---------- Rookie Camp: spotlight tour + tips ---------- */
+.coach { position: fixed; inset: 0; z-index: 950; pointer-events: auto; }
+.coach.dim { background: rgba(11,16,32,.62); backdrop-filter: blur(2px); }
+.co-hole { position: fixed; border-radius: 20px; box-shadow: 0 0 0 9999px rgba(11,16,32,.62), 0 0 0 3px #fff, 0 0 30px 6px rgba(122,92,255,.7); transition: left .35s var(--pop, ease), top .35s var(--pop, ease), width .35s var(--pop, ease), height .35s var(--pop, ease); pointer-events: none; animation: coPulse 1.8s ease-in-out infinite; }
+@keyframes coPulse { 0%, 100% { box-shadow: 0 0 0 9999px rgba(11,16,32,.62), 0 0 0 3px #fff, 0 0 24px 4px rgba(122,92,255,.6); } 50% { box-shadow: 0 0 0 9999px rgba(11,16,32,.62), 0 0 0 3px #fff, 0 0 38px 10px rgba(122,92,255,.85); } }
+.co-bubble { position: fixed; width: min(330px, calc(100vw - 24px)); padding: 16px 16px 14px; border-radius: 22px; background: #fff; color: var(--ink); box-shadow: 0 6px 0 var(--line2), 0 24px 50px -10px rgba(11,16,32,.45); }
+.co-bubble.in { animation: coIn .35s var(--pop, ease); }
+@keyframes coIn { from { opacity: 0; transform: translateY(8px) scale(.96); } }
+.co-step { display: inline-block; font-size: 11px; font-weight: 800; color: var(--violet); background: var(--violet-soft); padding: 3px 9px; border-radius: 99px; }
+.co-bubble > b { display: block; font-size: 19px; font-weight: 800; letter-spacing: -.02em; margin-top: 8px; }
+.co-bubble p b { font-weight: 800; color: var(--ink); }
+.co-bubble p { margin: 6px 0 12px; font-size: 14px; line-height: 1.5; color: var(--ink2); font-weight: 500; }
+.co-btns { display: flex; justify-content: space-between; gap: 8px; }
+.co-btns .btn { width: auto; flex: none; }
+.co-btns .btn.primary { flex: 1; }
+.co-skip { color: var(--mute); }
+.co-bubble::before { content: ''; position: absolute; left: 50%; width: 16px; height: 16px; background: #fff; transform: translateX(-50%) rotate(45deg); display: none; }
+.co-bubble[data-arrow="up"]::before { display: block; top: -7px; }
+.co-bubble[data-arrow="down"]::before { display: block; bottom: -7px; }
+.tip-head { display: flex; align-items: center; gap: 12px; }
+.tip-head .intro-ic { width: 46px; height: 46px; border-radius: 15px; }

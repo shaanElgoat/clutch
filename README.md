@@ -22,6 +22,9 @@ Double-click `Play CLUTCH.bat`, or run `python serve.py`, then open http://local
 | **My Club** | Build a 12-man team only from cards you own (each ★ is +1 rating) and climb the Rivals ladder from Division 10 to Division 1. Three wins promote you, a loss costs a point, and promotions award packs. You can also take your club into Gameday. **Rivals runs in monthly seasons:** when the month ends you're paid for the best division you reached (5,000 coins for Division 1 down to 50 for Division 10) and everyone resets to Division 10. |
 | **Friends** | Online rooms (2–4 phones, room code) over MQTT on public brokers (EMQX, with HiveMQ as the second broker; a code's first letter picks which one). Each phone keeps one live WebSocket. The broker's last-will presence shows who is actually here, the host phone runs the room, and a new host takes over automatically. Rejoin, and CPU picks for players who drop. Party mode on one phone too. Challenge links replay your exact spins and clutch calls. |
 
+## New players
+On first launch, **Rookie Camp** (`js/tutorial.js`) runs a 14-step spotlight tour across every tab: Season, Daily Draft, Games, Packs, My Club/Rivals, Trophies and Me. It ends by paying 300 coins (once) and offering a first Season. One-time **tips** appear the first time you open a draft, a live season, a Clutch Call, Gameday, My Club, The Grid, Who's That?, Who's Better?, Kick It and an online room. The Me tab has **Replay the tutorial** and **Show tips again**. Players who already played (`seenHelp`) skip both.
+
 ## Navigation
 Five bottom tabs: **Season** (the main game, Daily Draft, friends seasons, your season stats), **Games** (the 3 daily puzzles, Draft Duel, Salary Cap, Gameday, Kick It, Who's Better), **Club** (My Club, Packs and Binder), **Trophies** and **Me**.
 

@@ -76,7 +76,7 @@ function Home() {
       ${lrow({ attr: 'data-act="friends"', col: 'ink', ic: 'users', t: 'Play with friends', sub: 'Online room or pass &amp; play' })}
     </div>`, 'has-tabs');
   tabbar('play');
-  if (!d.seenHelp) { d.seenHelp = true; Store.save(); later(Help, 500); }
+  if (!d.toured) { d.seenHelp = true; Store.save(); setTimeout(() => { if (!Store.data.toured && !document.querySelector('.coach')) startTour(); }, 900); }
   return el;
 }
 
@@ -99,7 +99,7 @@ function GamesTab() {
     <div class="group">${trivia.map((x) => lrow({ attr: `data-act="${x.act}"`, col: x.col, ic: x.ic, t: x.t, sub: esc(x.res || x.blurb), meta: x.done ? ico('check', 14) : 'Play', hot: !x.done })).join('')}</div>
 
     <div class="group-title">Head to head</div>
-    <div class="group">
+    <div class="group" data-tour="h2h">
       ${lrow(Object.assign({ attr: 'data-act="duel"', col: 'violet', ic: 'users', t: 'Draft Duel', sub: 'Out-draft a rival, then best of 3' }, res('duel', (s.duelW || 0) + ' won')))}
       ${lrow(Object.assign({ attr: 'data-act="cap"', col: 'sun', ic: 'coin', t: 'Salary Cap', sub: `$${CAP}M team, then 4 knockout games` }, res('cap', capTitles(s) + ' won')))}
       ${lrow(Object.assign({ attr: 'data-act="gameday"', col: 'mint', ic: 'clipboard', t: 'Gameday', sub: 'Call every play yourself' }, res('gameday', s.gdWins + '-' + (s.gdPlayed - s.gdWins))))}
@@ -375,8 +375,9 @@ function Profile() {
       <button class="toggle ${d.haptics ? 'on' : ''}" data-tg="haptics"><span class="ic">${ico('phone', 20)}</span><div class="grow"><h4>Vibration</h4></div><div class="sw"></div></button>
       <button class="toggle ${d.fastSpin ? 'on' : ''}" data-tg="fastSpin"><span class="ic">${ico('bolt', 20)}</span><div class="grow"><h4>Fast spins</h4><p>Shorter wheel animation</p></div><div class="sw"></div></button>
     </div>
-    <div class="actions"><button class="btn" data-act="help">How to play</button><button class="btn" id="reset" style="color:var(--red)">Reset all progress</button></div>`, 'has-tabs');
+    <div class="actions"><button class="btn primary" data-act="tour">${ico('sparkle', 18)} Replay the tutorial</button><button class="btn" id="tipsAgain">Show tips again</button><button class="btn" data-act="help">How to play</button><button class="btn" id="reset" style="color:var(--red)">Reset all progress</button></div>`, 'has-tabs');
   tabbar('me');
+  const ta = $('#tipsAgain', el); if (ta) ta.addEventListener('click', () => { Store.data.tips = {}; Store.save(); toast('Tips will show again'); });
   $('#nm', el).addEventListener('input', (e) => { d.name = e.target.value.slice(0, 14); Store.save(); });
   $$('[data-tg]', el).forEach((b2) => b2.addEventListener('click', () => { const k = b2.dataset.tg; d[k] = !d[k]; b2.classList.toggle('on', d[k]); Store.save(); Sfx.tap(); }));
   $$('[data-th]', el).forEach((b2) => b2.addEventListener('click', () => {
@@ -469,7 +470,7 @@ document.addEventListener('click', (e) => {
 
 // ================= BOOT =================
 const ACTIONS = {
-  home: () => goTab(App.tab || 'play'), dailytab: () => goTab('games'), duel: () => runOr('duel', DuelStart), cap: () => runOr('cap', CapStart), binder: Cards, help: Help, quit: () => quitDraft(), season: () => runOr('season', () => SeasonSetup('quick')), daily: () => (Runs.get('daily') ? resumeRun('daily') : openDaily()), gameday: () => runOr('gameday', GamedayStart),
+  home: () => goTab(App.tab || 'play'), tour: () => startTour(), dailytab: () => goTab('games'), duel: () => runOr('duel', DuelStart), cap: () => runOr('cap', CapStart), binder: Cards, help: Help, quit: () => quitDraft(), season: () => runOr('season', () => SeasonSetup('quick')), daily: () => (Runs.get('daily') ? resumeRun('daily') : openDaily()), gameday: () => runOr('gameday', GamedayStart),
   hl: () => runOr('hl', WhosBetter), friends: FriendsMenu, party: () => runOr('party', PartySetup), online: () => OnlineScreen(),
   club: () => ClubScreen(), grid: () => GridGame(), who: () => MysteryGame(), drill: () => (Runs.get('drill') ? resumeRun('drill') : DrillStart()), kick: () => runOr('kick', KickIt), packs: Packs,
 };

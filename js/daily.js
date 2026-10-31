@@ -46,6 +46,7 @@ function gridFit(pid, ti, ci) {
   return TE.PLAYERS.find((p) => p.name === name && p.team === ti && GRID_COLS[ci].t(p)) || null;
 }
 function GridGame(practiceSeed) {
+  tipOnce('grid');
   const daily = !practiceSeed;
   const seed = daily ? dayKey() : practiceSeed;
   const G = gridFor(seed);
@@ -120,6 +121,7 @@ function compareGuess(gid, tid) {
   };
 }
 function MysteryGame(practiceSeed) {
+  tipOnce('who');
   const daily = !practiceSeed;
   const tid = mysteryTarget(daily ? dayKey() : practiceSeed);
   const st = (daily && puzzle('who')) || { guesses: [], done: false, win: false };
@@ -218,6 +220,7 @@ function drillFinish(g, opts, el) {
 // KICK IT: time your aim and power. Each make moves you back 5 yards.
 // =====================================================================
 function KickIt(resume) {
+  tipOnce('kick');
   const best = Store.data.stats.kickBest;
   const el = go(`
     <div class="topbar"><button class="icon-btn" data-act="home">${ico('back', 20)}</button><div class="grow"><h2 class="d">Kick It</h2><div class="mute" style="font-weight:700;font-size:12px">Best: ${best} kicks</div></div>

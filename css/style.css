@@ -1052,3 +1052,38 @@ html, body { overflow-x: clip; }
 .co-bubble[data-arrow="down"]::before { display: block; bottom: -7px; }
 .tip-head { display: flex; align-items: center; gap: 12px; }
 .tip-head .intro-ic { width: 46px; height: 46px; border-radius: 15px; }
+
+/* ---------- Rivals hub ---------- */
+.rv-hero { display: flex; align-items: center; gap: 14px; padding: 18px; border-radius: 26px; color: #fff; background: #10172e; position: relative; overflow: hidden; isolation: isolate; box-shadow: 0 6px 0 #070b18, var(--shadow-lg); }
+.rv-hero::before { content: ''; position: absolute; inset: 0; z-index: -1; background: radial-gradient(70% 100% at 0% 100%, rgba(122,92,255,.55), transparent 60%), radial-gradient(60% 90% at 100% 0%, rgba(52,102,255,.6), transparent 60%); }
+.rv-badge { flex: none; width: 78px; height: 86px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 22px 22px 40px 40px; background: linear-gradient(160deg, #ffd75a, #f5a700); color: #3a2600; box-shadow: 0 5px 0 #b77800, 0 12px 24px -8px rgba(245,167,0,.7); }
+.rv-badge small { font-size: 10.5px; font-weight: 800; letter-spacing: .04em; }
+.rv-badge b { font-size: 38px; font-weight: 800; line-height: 1; letter-spacing: -.04em; }
+.rv-name { display: block; font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
+.rv-sub { display: block; font-size: 13px; font-weight: 600; color: #c9d2f0; margin-top: 2px; }
+.rv-safe { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: 800; background: rgba(16,185,129,.22); color: #7ff0c6; }
+.rv-track { display: flex; gap: 4px; margin-top: 14px; }
+.rv-track i { flex: 1; height: 14px; border-radius: 5px; background: var(--line2); }
+.rv-track i.on { background: linear-gradient(180deg, #ffd75a, #f5a700); box-shadow: 0 2px 0 #c98a00; }
+.rv-track i.next { background: repeating-linear-gradient(45deg, var(--line2) 0 4px, #fff 4px 8px); box-shadow: 0 0 0 2px var(--blue) inset; }
+.rv-track-l { display: flex; justify-content: space-between; margin-top: 6px; font-size: 12px; font-weight: 800; color: var(--mute); }
+.rv-if { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+.rv-card { padding: 12px; border-radius: 18px; background: var(--card); box-shadow: 0 4px 0 var(--line2); border: 2px solid transparent; }
+.rv-card small { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 800; color: var(--mute); }
+.rv-card b { display: block; margin-top: 5px; font-size: 13.5px; font-weight: 800; line-height: 1.3; }
+.rv-card.win { border-color: #bfeedb; } .rv-card.win small { color: var(--mint); }
+.rv-card.safe { border-color: #bfeedb; background: var(--mint-soft); } .rv-card.safe small { color: var(--mint); }
+.rv-card.warn { border-color: #ffe2a6; background: #fff8e6; } .rv-card.warn small { color: #c98a00; }
+.rv-card.danger { border-color: #ffc2cd; background: #ffeef1; animation: dotPulse 1.6s ease-in-out infinite; } .rv-card.danger small, .rv-card.danger b { color: var(--red); }
+.rv-ladder { display: grid; gap: 4px; }
+.rv-rung { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 14px; background: var(--card); box-shadow: 0 2px 0 var(--line2); font-size: 13.5px; }
+.rv-rung b { width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; font-size: 12.5px; font-weight: 800; background: var(--bg); }
+.rv-rung span { font-weight: 700; min-width: 0; }
+.rv-rung em { font-style: normal; font-size: 10.5px; font-weight: 800; color: #fff; background: var(--blue); padding: 2px 7px; border-radius: 99px; margin-left: 4px; }
+.rv-rung small { font-size: 11.5px; font-weight: 700; color: var(--mute); white-space: nowrap; }
+.rv-rung small.c { color: #c98a00; display: inline-flex; align-items: center; gap: 3px; min-width: 62px; justify-content: flex-end; }
+.rv-rung.me { background: linear-gradient(135deg, #4b78ff, #7a5cff); color: #fff; box-shadow: 0 3px 0 #2638b8; }
+.rv-rung.me b { background: rgba(255,255,255,.22); color: #fff; } .rv-rung.me small { color: #e2e8ff; } .rv-rung.me em { background: #fff; color: var(--blue); }
+.rv-rung.past { opacity: .6; }
+.rv-rules p { margin: 0 0 8px; font-size: 13.5px; line-height: 1.5; color: var(--ink2); } .rv-rules p:last-child { margin: 0; }
+#toRivals { cursor: pointer; }

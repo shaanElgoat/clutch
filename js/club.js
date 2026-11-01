@@ -22,7 +22,7 @@ function clubData() {
   if (c.season !== now) {
     // season over: bank the reward (only if you played), then everyone resets to Division 10
     if (c.sw + c.sl > 0) c.seasonEnd = { season: c.season, best: c.sbest, coins: SEASON_COINS[c.sbest] || 50 };
-    Object.assign(c, { season: now, div: 10, pts: 0, sw: 0, sl: 0, sbest: 10, match: null });
+    Object.assign(c, { season: now, div: 10, pts: 0, sw: 0, sl: 0, sbest: 10, match: null, next: null, safe: 0 });
     Store.save();
   }
   return c;
@@ -72,9 +72,9 @@ function ClubScreen() {
   const filled = c.xi.filter((x) => x !== null).length;
   const el = go(`
     ${clubSeg('club')}
-    <div class="club-hero">
+    <div class="club-hero" id="toRivals" role="button">
       <div class="ch-div"><small>Rivals · ${esc(seasonName(c.season))}</small><b>Division ${c.div}</b><span>${esc(divName(c.div))}</span>
-        ${c.div === 1 ? '<div class="div-prog"><span>Top division</span></div>' : `<div class="div-prog"><div class="dp-bar"><i style="width:${(Math.min(c.pts, winsToPromote(c.div)) / winsToPromote(c.div)) * 100}%"></i></div><span>${c.pts}/${winsToPromote(c.div)} wins to promote</span></div>`}
+        <div class="div-prog"><div class="dp-bar"><i style="width:${(Math.min(c.pts, divTarget(c.div)) / divTarget(c.div)) * 100}%"></i></div><span>${c.div === 1 ? `Cushion ${Math.min(c.pts, DIV1_CUSHION)}/${DIV1_CUSHION}` : `${c.pts}/${winsToPromote(c.div)} wins to promote`}${c.safe > 0 ? ` · ${ico('shield', 11)} ${c.safe} safe` : ''}</span></div>
         <div class="season-clock">${ico('timer', 13)} Season ends in ${seasonLeft()}</div></div>
       <div class="ch-rings"><div class="ring big" style="--p:${Math.max(0, Math.min(100, ((prof.ovr || 60) - 60) * 2.5))}%"><b>${filled ? Math.round(prof.ovr) : '–'}</b><small>OVR</small></div></div>
     </div>
@@ -82,7 +82,7 @@ function ClubScreen() {
     <p class="mute center" style="font-weight:600;font-size:12.5px;margin:8px 0 0">Tap any spot to swap in a card you own. Each ★ is +1 rating.</p>
     <div class="actions">
       ${c.reward !== null && c.reward !== undefined ? `<button class="btn sun big" id="rwd">${ico('coin', 18)} Claim your ${PACKS[c.reward].cost.toLocaleString()} coin reward</button>` : ''}
-      <button class="btn primary big" id="play" ${clubReady() ? '' : 'disabled'}>${ico('play', 18)} ${!clubReady() ? `Fill all 12 spots (${filled}/12)` : c.match ? 'Finish your Rivals match' : 'Play Rivals match'}</button>
+      <button class="btn primary big" id="play" ${clubReady() ? '' : 'disabled'}>${ico('shield', 18)} ${!clubReady() ? `Fill all 12 spots (${filled}/12)` : c.match ? 'Rivals: finish your match' : 'Rivals'}</button>
       <div class="two"><button class="btn" id="auto">${ico('sparkle', 18)} Auto-build</button><button class="btn" id="gd" ${clubReady() ? '' : 'disabled'}>${ico('clipboard', 18)} Gameday</button></div>
       ${filled < 12 ? `<button class="btn" data-act="packs">${ico('pack', 18)} Get more cards</button>` : ''}
     </div>
@@ -100,7 +100,8 @@ function ClubScreen() {
     if (slotEl) { slotEl.style.cursor = 'pointer'; slotEl.addEventListener('click', () => editClubSlot(i)); }
   });
   $('#auto', el).addEventListener('click', () => { autoBuildClub(); Sfx.good(); ClubScreen(); });
-  const pb = $('#play', el); if (pb) pb.addEventListener('click', rivalsMatch);
+  const pb = $('#play', el); if (pb) pb.addEventListener('click', RivalsHub);
+  $('#toRivals', el).addEventListener('click', () => (clubReady() ? RivalsHub() : toast('Fill all 12 spots first')));
   const rw = $('#rwd', el); if (rw) rw.addEventListener('click', openClubReward);
   const gb = $('#gd', el); if (gb) gb.addEventListener('click', () => GamedayOpp(clubData().xi, levelMods(clubData().xi)));
   // a finished season waits here until you claim it
@@ -124,6 +125,23 @@ const RIVALS_DIV = {
   5: { q: 0.66, boost: 0.9 }, 4: { q: 0.72, boost: 1.1 }, 3: { q: 0.78, boost: 1.3 }, 2: { q: 0.84, boost: 1.5 }, 1: { q: 0.9, boost: 1.7 },
 };
 const winsToPromote = (div) => 17 - div; // 10 -> 7, 9 -> 8, ... 2 -> 15
+// a win is +1, a loss is -1; a loss at 0 drops you a division (Division 10 is the floor).
+// Checkpoint: after every promotion you can't drop for a few games (more in the lower divisions).
+const SAFE_GAMES = { 9: 5, 8: 5, 7: 4, 6: 4, 5: 3, 4: 3, 3: 2, 2: 2, 1: 2 };
+const DIV1_CUSHION = 5; // Division 1 has no promotion: your points are a cushion against dropping
+const divTarget = (div) => (div === 1 ? DIV1_CUSHION : winsToPromote(div));
+// what the next game means, in plain words
+function rivalsOutlook(c) {
+  const need = divTarget(c.div), p = Math.min(c.pts, need);
+  const win = c.div === 1 ? (p + 1 >= need ? 'Your cushion is full. You hold the top division.' : `Cushion goes up to ${p + 1}/${need}.`)
+    : p + 1 >= need ? `You're promoted to Division ${c.div - 1}!` : `${p + 1}/${need} wins. ${need - p - 1} more to move up.`;
+  let lose, tone;
+  if (c.div === 10) { lose = "Division 10 is the floor. You can't drop."; tone = 'safe'; }
+  else if (c.safe > 0) { lose = `Checkpoint: ${c.safe} protected game${c.safe === 1 ? '' : 's'} left, so you can't drop.${p > 0 ? ` Progress goes to ${p - 1}/${need}.` : ''}`; tone = 'safe'; }
+  else if (p > 0) { lose = `You lose 1 ${c.div === 1 ? 'point of cushion' : 'win of progress'} (${p - 1}/${need}). You won't drop.`; tone = 'warn'; }
+  else { lose = `You drop to Division ${c.div + 1}.`; tone = 'danger'; }
+  return { win, lose, tone, need, p };
+}
 function rivalsOpponent(div, seed) {
   const sorted = TE.CUR_SQ.slice().sort((a, b) => TE.squadStrength(a) - TE.squadStrength(b));
   const r = TE.rng(seed);
@@ -135,10 +153,53 @@ function rivalsOpponent(div, seed) {
   const prof = Object.assign({}, base.prof, { off: base.prof.off + boost, def: base.prof.def + boost, ovr: base.prof.ovr + boost });
   return Object.assign({}, base, { prof, name: base.name + '+' });
 }
+function RivalsHub() {
+  App.g = null;
+  const c = clubData();
+  if (!clubReady()) { toast('Fill all 12 spots in My Club first'); return ClubScreen(); }
+  // the next opponent is picked now so you can see who you'll face (it doesn't count until you play)
+  if (!c.match && (!c.next || c.next.div !== c.div)) { c.next = { seed: 'rv:' + rid(), div: c.div }; Store.save(); }
+  const nx = c.match || c.next, opp = rivalsOpponent(nx.div, nx.seed), oc = teamColors(opp);
+  const me = TE.teamProfile(c.xi, { mods: levelMods(c.xi) });
+  const o = rivalsOutlook(c);
+  const el = go(`
+    <div class="topbar"><button class="icon-btn" id="back">${ICON.back}</button><div class="grow"><h2 class="d">Rivals</h2><div class="mute" style="font-weight:700;font-size:12px">${esc(seasonName(c.season))} · ends in ${seasonLeft()}</div></div><span class="pill">${c.sw}-${c.sl}</span></div>
+    <div class="rv-hero">
+      <div class="rv-badge"><small>Division</small><b>${c.div}</b></div>
+      <div class="grow"><b class="rv-name">${esc(divName(c.div))}</b>
+        <span class="rv-sub">${c.div === 1 ? 'The top division. Keep your cushion up.' : `${o.need - o.p} win${o.need - o.p === 1 ? '' : 's'} to reach Division ${c.div - 1}`}</span>
+        ${c.safe > 0 ? `<span class="rv-safe">${ico('shield', 13)} Checkpoint · ${c.safe} safe game${c.safe === 1 ? '' : 's'}</span>` : ''}</div>
+    </div>
+    <div class="rv-track">${Array.from({ length: o.need }, (_, i) => `<i class="${i < o.p ? 'on' : ''} ${i === o.p ? 'next' : ''}"></i>`).join('')}</div>
+    <div class="rv-track-l"><span>${c.div === 1 ? 'Cushion' : 'Progress'} ${o.p}/${o.need}</span><span>${c.div === 1 ? 'Top division' : 'Division ' + (c.div - 1)}</span></div>
+
+    <div class="rv-if">
+      <div class="rv-card win"><small>${ico('check', 13)} If you win</small><b>${esc(o.win)}</b></div>
+      <div class="rv-card ${o.tone}"><small>${ico(o.tone === 'danger' ? 'bolt' : o.tone === 'safe' ? 'shield' : 'x', 13)} If you lose</small><b>${esc(o.lose)}</b></div>
+    </div>
+
+    <div class="group-title">Next opponent</div>
+    <div class="vs"><div class="side"><div class="helmbig">${myTeamHelm()}</div><b>My Club</b><span>OVR ${Math.round(me.ovr)}</span></div><div class="x">VS</div>
+      <div class="side"><div class="helmbig">${helmet(oc.c1, oc.c2, true)}</div><b>${esc(opp.name)}</b><span>OVR ${Math.round(opp.prof.ovr)}</span></div></div>
+    <button class="btn hot big" id="play">${ico('play', 18)} ${c.match ? 'Finish your match' : 'Play match'}</button>
+
+    <div class="group-title">The ladder</div>
+    <div class="rv-ladder">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((d) => `<div class="rv-rung ${d === c.div ? 'me' : d > c.div ? 'past' : ''}"><b>${d}</b><span class="grow">${esc(divName(d))}${d === c.div ? ' <em>you</em>' : ''}</span><small>${d === 1 ? 'Top' : winsToPromote(d) + ' wins'}</small><small class="c">${ico('coin', 12)} ${SEASON_COINS[d].toLocaleString()}</small></div>`).join('')}</div>
+
+    <div class="group-title">How it works</div>
+    <div class="hero-card rv-rules">
+      <p><b>Win</b> +1, <b>lose</b> −1. Fill the bar to move up a division.</p>
+      <p>Lose with an empty bar and you <b>drop a division</b>. Division 10 is the floor.</p>
+      <p><b>Checkpoints:</b> after a promotion you can't drop for 2–5 games (more in the lower divisions).</p>
+      <p>Each month is a new season. You're paid for your <b>best division</b>, then everyone restarts in Division 10.</p>
+    </div>`);
+  $('#back', el).addEventListener('click', () => { App.clubSeg = 'club'; goTab('club'); });
+  $('#play', el).addEventListener('click', rivalsMatch);
+}
 function rivalsMatch() {
   const c = clubData();
   // the match is locked in when it starts, so leaving can't re-roll a loss
-  if (!c.match) { c.match = { seed: 'rv:' + rid(), div: c.div }; Store.save(); }
+  if (!c.match) { c.match = c.next && c.next.div === c.div ? c.next : { seed: 'rv:' + rid(), div: c.div }; c.next = null; Store.save(); }
   const seed = c.match.seed, opp = rivalsOpponent(c.match.div, seed);
   const user = { name: myName(), xi: c.xi, mods: levelMods(c.xi) };
   playLiveMatch({ title: 'Rivals · Division ' + c.match.div, badge: 'Rivals · Division ' + c.match.div, user, opp, seed, po: false, onDone: (r, el) => rivalsResult(r, el) });
@@ -147,24 +208,40 @@ function rivalsResult(r, el) {
   const c = clubData();
   if (!c.match) return; // already counted
   c.match = null;
-  let promo = null;
+  let promo = null, drop = null;
+  const before = { div: c.div, pts: c.pts };
+  const shielded = (c.safe || 0) > 0;
+  c.safe = Math.max(0, (c.safe || 0) - 1); // every game uses up a protected game
+  const need = divTarget(c.div);
   if (r.win) {
     c.w++; c.sw++;
-    if (c.div > 1) c.pts++;
-    if (c.div > 1 && c.pts >= winsToPromote(c.div)) { c.div--; c.pts = 0; promo = c.div; c.top = Math.min(c.top, c.div); c.sbest = Math.min(c.sbest, c.div); }
+    c.pts = Math.min(need, c.pts + 1);
+    if (c.div > 1 && c.pts >= need) { c.div--; c.pts = 0; promo = c.div; c.safe = SAFE_GAMES[c.div] || 2; c.top = Math.min(c.top, c.div); c.sbest = Math.min(c.sbest, c.div); }
     addXP(45 + (10 - c.div) * 5); Sfx.crowd(true);
-  } else { c.l++; c.sl++; addXP(15); Sfx.groan(); }
+  } else {
+    c.l++; c.sl++;
+    if (c.pts > 0) c.pts--;
+    else if (!shielded && c.div < 10) { c.div++; drop = c.div; c.pts = Math.max(0, winsToPromote(c.div) - 2); }
+    addXP(15); Sfx.groan();
+  }
   if (c.div <= 5) unlock('club5');
   if (c.div <= 1) unlock('club1');
   const reward = promo ? (promo <= 1 ? 2 : promo <= 4 ? 1 : 0) : null;
   if (reward !== null) c.reward = reward; // kept until opened
   Store.save();
-  $('#after', el).innerHTML = `<div class="outcome ${r.win ? 'win' : 'loss'}" style="margin-top:12px"><h2>${r.win ? 'Win' : 'Loss'} ${r.us}–${r.them}</h2><p>${promo ? `Promoted to Division ${promo}: ${esc(divName(promo))}!${promo > 1 ? ` Next up: ${winsToPromote(promo)} wins to go up again.` : ' The top division.'}` : c.div === 1 ? (r.win ? 'Holding the top division.' : 'Shake it off. You stay in Division 1.') : r.win ? `${c.pts}/${winsToPromote(c.div)} wins. ${winsToPromote(c.div) - c.pts} more to promote.` : `No progress lost. Still ${c.pts}/${winsToPromote(c.div)} wins.`}</p></div>
+  const t = divTarget(c.div);
+  const line = promo ? `Promoted to Division ${promo}: ${esc(divName(promo))}! You're safe from dropping for ${c.safe} games.`
+    : drop ? `Dropped to Division ${drop}. You start ${c.pts}/${t}, so a couple of wins gets you back up.`
+    : r.win ? (c.div === 1 ? `Cushion ${c.pts}/${t}.` : `${before.pts} → ${c.pts}/${t} wins. ${t - c.pts} more to move up.`)
+    : shielded && before.pts === 0 ? `Checkpoint saved you: no drop.${c.safe ? ` ${c.safe} safe game${c.safe === 1 ? '' : 's'} left.` : ' Your protection has run out.'}`
+    : before.pts > 0 ? `${before.pts} → ${c.pts}/${t}. ${c.pts === 0 && c.div < 10 && !c.safe ? 'Careful: lose the next one and you drop.' : "You didn't drop."}`
+    : `Still in Division ${c.div}.`;
+  $('#after', el).innerHTML = `<div class="outcome ${r.win ? 'win' : 'loss'}" style="margin-top:12px"><h2>${r.win ? 'Win' : 'Loss'} ${r.us}–${r.them}</h2><p>${line}</p></div>
     ${promo ? `<div class="upgrade" style="margin-top:12px"><b>${ico('coin', 18)} Promotion reward: ${PACKS[reward].cost.toLocaleString()} coins</b><div class="mute" style="font-weight:600;font-size:13px">Enough for a ${PACKS[reward].name} pack.</div></div>` : ''}
-    <div class="actions">${promo ? `<button class="btn primary" id="rw">${ico('coin', 18)} Claim ${PACKS[reward].cost.toLocaleString()} coins</button>` : `<button class="btn primary" id="again">${ico('play', 18)} Next match</button>`}<button class="btn" id="club">${ico('shield', 18)} My Club</button></div>`;
-  if (promo) { confetti(); Sfx.trophy(); $('#rw', el).addEventListener('click', openClubReward); }
-  const ag = $('#again', el); if (ag) ag.addEventListener('click', rivalsMatch);
-  $('#club', el).addEventListener('click', ClubScreen);
+    <div class="actions">${promo ? `<button class="btn primary" id="rw">${ico('coin', 18)} Claim ${PACKS[reward].cost.toLocaleString()} coins</button>` : `<button class="btn primary" id="hub">${ico('shield', 18)} Back to Rivals</button>`}<button class="btn" id="club">${ico('users', 18)} My Club</button></div>`;
+  if (promo) { confetti(); Sfx.trophy(); $('#rw', el).addEventListener('click', () => { openClubReward(); RivalsHub(); }); }
+  const hb = $('#hub', el); if (hb) hb.addEventListener('click', RivalsHub);
+  $('#club', el).addEventListener('click', () => { App.clubSeg = 'club'; goTab('club'); });
 }
 function openClubReward() {
   const c = clubData();

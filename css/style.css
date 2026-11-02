@@ -1087,3 +1087,11 @@ html, body { overflow-x: clip; }
 .rv-rung.past { opacity: .6; }
 .rv-rules p { margin: 0 0 8px; font-size: 13.5px; line-height: 1.5; color: var(--ink2); } .rv-rules p:last-child { margin: 0; }
 #toRivals { cursor: pointer; }
+/* player picker: the "remove from lineup" row and swap notes */
+.srow.top-action b { color: var(--red); }
+.srow .ta-ic { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: #ffe9ed; color: var(--red); flex: none; }
+.srow-note { color: var(--blue); font-weight: 800; }
+/* Me tab: redeem a code */
+.code-box { display: flex; gap: 8px; align-items: center; }
+.code-box .field { text-transform: uppercase; letter-spacing: .12em; font-weight: 800; }
+.code-box .btn { flex: none; padding: 14px 16px; }

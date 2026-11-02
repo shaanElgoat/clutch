@@ -109,11 +109,24 @@ function ClubScreen() {
 }
 async function editClubSlot(i) {
   const c = clubData(), s = TE.LINEUP[i];
-  const taken = (id) => c.xi.some((x, k) => k !== i && x !== null && TE.PLAYERS[x].name === TE.PLAYERS[id].name);
   const fits = (id) => TE.fitPenalty(TE.PLAYERS[id].pos, s.pos) !== null;
+  // where a player (by name) already sits in the lineup, if anywhere
+  const spotOf = (id) => c.xi.findIndex((x, k) => k !== i && x !== null && TE.PLAYERS[x].name === TE.PLAYERS[id].name);
   const list = ownedIds().filter(fits).sort((a, b) => effRating(b, i) - effRating(a, i));
-  const pid = await pickPlayer({ title: `Your ${TE.POS_NAME[s.pos].toLowerCase()}s`, sub: s.pos === 'HC' || s.pos === 'K' ? '' : 'Players out of position lose a few rating points.', initial: list.slice(0, 80), filter: (id) => !!Store.data.coll[id] && fits(id), exclude: (id) => (taken(id) ? 'already in your club' : null), stars: true, mods: levelMods(list), emptyText: `You don't own a card that can play ${s.label} yet. Open packs or draft one.` });
+  const cur = c.xi[i];
+  const pid = await pickPlayer({
+    title: `Your ${TE.POS_NAME[s.pos].toLowerCase()}s`, sub: s.pos === 'HC' || s.pos === 'K' ? '' : 'Players out of position lose a few rating points.',
+    initial: list.slice(0, 80), filter: (id) => !!Store.data.coll[id] && fits(id), stars: true, mods: levelMods(list),
+    exclude: (id) => (id === cur ? 'in this spot now' : null),
+    note: (id) => { const k = spotOf(id); return k < 0 ? null : `swaps with your ${TE.LINEUP[k].label}`; },
+    topAction: cur !== null ? { label: 'Remove from lineup', sub: `Take ${TE.PLAYERS[cur].name} out and leave the ${s.label} spot empty`, icon: 'x' } : null,
+    emptyText: `You don't own a card that can play ${s.label} yet. Open packs to get one.`,
+  });
   if (pid === null) return;
+  if (pid === -1) { c.xi[i] = null; Store.save(); Sfx.tap(); toast(`${TE.PLAYERS[cur].name} is out of the lineup`); return ClubScreen(); }
+  // moving a player who's already in the lineup: swap the two (or leave his old spot empty if this one can't play there)
+  const k = spotOf(pid);
+  if (k >= 0) c.xi[k] = cur !== null && TE.fitPenalty(TE.PLAYERS[cur].pos, TE.LINEUP[k].pos) !== null ? cur : null;
   c.xi[i] = pid; Store.save(); Sfx.place();
   ClubScreen();
 }

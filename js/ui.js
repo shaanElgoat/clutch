@@ -317,11 +317,14 @@ function pickPlayer(opts) {
       if (!opts.initial) setTimeout(() => q.focus(), 50);
       const norm = (x) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
       const show = (list, empty) => {
-        res.innerHTML = list.length ? list.map((p) => { const why = opts.exclude ? opts.exclude(p.id) : null; const t2 = TE.DATA.TEAMS[p.team];
+        // optional first row that returns -1 (e.g. "Remove from lineup")
+        const top = opts.topAction ? `<button class="srow top-action" data-pid="-1"><span class="mc ta-ic">${ico(opts.topAction.icon || 'x', 22)}</span><span class="grow"><b>${esc(opts.topAction.label)}</b><small>${esc(opts.topAction.sub || '')}</small></span>${ico('chevron', 18)}</button>` : '';
+        res.innerHTML = top + (list.length ? list.map((p) => { const why = opts.exclude ? opts.exclude(p.id) : null; const t2 = TE.DATA.TEAMS[p.team];
+          const note = !why && opts.note ? opts.note(p.id) : null;
           const st = opts.stars ? cardLevel(p.id) : 0;
           // trivia mode: just the name, so the list never gives away a team, position or decade
           if (opts.namesOnly) return `<button class="srow name-only ${why ? 'off' : ''}" data-pid="${p.id}"><span class="grow"><b>${esc(p.name)}</b>${why ? `<small>${esc(why)}</small>` : ''}</span>${ico('chevron', 18)}</button>`;
-          return `<button class="srow ${why ? 'off' : ''}" data-pid="${p.id}"><span class="mc">${pcard(p.id, { hideRating: opts.hideRatings, mods: opts.mods })}</span><span class="grow"><b>${esc(p.name)}${st ? ` <span class="stars-inline">${'★'.repeat(st)}</span>` : ''}</b><small>${esc(t2.name)} · ${TE.DATA.ERA_LABEL[p.era]} · ${p.pos}${why ? ' · ' + esc(why) : ''}</small></span>${ico('chevron', 18)}</button>`; }).join('') : `<div class="mute center" style="padding:20px;font-weight:600">${empty}</div>`;
+          return `<button class="srow ${why ? 'off' : ''}" data-pid="${p.id}"><span class="mc">${pcard(p.id, { hideRating: opts.hideRatings, mods: opts.mods })}</span><span class="grow"><b>${esc(p.name)}${st ? ` <span class="stars-inline">${'★'.repeat(st)}</span>` : ''}</b><small>${esc(t2.name)} · ${TE.DATA.ERA_LABEL[p.era]} · ${p.pos}${why ? ' · ' + esc(why) : ''}${note ? ` · <b class="srow-note">${esc(note)}</b>` : ''}</small></span>${ico('chevron', 18)}</button>`; }).join('') : `<div class="mute center" style="padding:20px;font-weight:600">${empty}</div>`);
         $$('.srow', res).forEach((b) => b.addEventListener('click', () => { if (b.classList.contains('off')) return; done = true; bg.remove(); resolve(+b.dataset.pid); }));
       };
       if (opts.initial) show(opts.initial.map((id) => TE.PLAYERS[id]), opts.emptyText || 'No cards yet. Draft or open packs to collect some.');

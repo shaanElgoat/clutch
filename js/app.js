@@ -369,6 +369,9 @@ function Profile() {
     <input class="field" id="nm" maxlength="14" placeholder="Your name" value="${esc(d.name)}">
     <div class="section-title">Field</div>
     <div class="themes">${THEMES.map((t) => `<button class="theme ${d.theme === t.id ? 'on' : ''} ${l < t.lvl ? 'lock' : ''}" data-th="${t.id}" style="background:${sw[t.id]}" title="${t.name}">${l < t.lvl ? ico('lock', 16) : d.theme === t.id ? ico('check', 18) : ''}<small>${l < t.lvl ? 'Lv ' + t.lvl : t.name.split(' ')[0]}</small></button>`).join('')}</div>
+    <div class="section-title">Redeem a code</div>
+    <div class="code-box"><input class="field grow" id="rcode" maxlength="20" placeholder="Enter code" autocomplete="off" autocapitalize="characters" spellcheck="false"><button class="btn primary small" id="rbtn">${ico('gift', 16)} Redeem</button></div>
+    <p class="mute" id="rmsg" style="font-weight:600;font-size:12.5px;margin:6px 4px 0;min-height:18px"></p>
     <div class="section-title">Settings</div>
     <div class="settings">
       <button class="toggle ${d.sound ? 'on' : ''}" data-tg="sound"><span class="ic">${ico('sound', 20)}</span><div class="grow"><h4>Sound</h4></div><div class="sw"></div></button>
@@ -378,6 +381,9 @@ function Profile() {
     <div class="actions"><button class="btn primary" data-act="tour">${ico('sparkle', 18)} Replay the tutorial</button><button class="btn" id="tipsAgain">Show tips again</button><button class="btn" data-act="help">How to play</button><button class="btn" id="reset" style="color:var(--red)">Reset all progress</button></div>`, 'has-tabs');
   tabbar('me');
   const ta = $('#tipsAgain', el); if (ta) ta.addEventListener('click', () => { Store.data.tips = {}; Store.save(); toast('Tips will show again'); });
+  const rb = $('#rbtn', el), ri = $('#rcode', el);
+  rb.addEventListener('click', () => { const r = redeemCode(ri.value); const m = $('#rmsg', el); m.textContent = r.msg; m.style.color = r.ok ? 'var(--mint)' : 'var(--red)'; if (r.ok) { ri.value = ''; Profile(); toast(r.msg); } });
+  ri.addEventListener('keydown', (e) => { if (e.key === 'Enter') rb.click(); });
   $('#nm', el).addEventListener('input', (e) => { d.name = e.target.value.slice(0, 14); Store.save(); });
   $$('[data-tg]', el).forEach((b2) => b2.addEventListener('click', () => { const k = b2.dataset.tg; d[k] = !d[k]; b2.classList.toggle('on', d[k]); Store.save(); Sfx.tap(); }));
   $$('[data-th]', el).forEach((b2) => b2.addEventListener('click', () => {
@@ -467,6 +473,23 @@ document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-resume]');
   if (b) { Sfx.tap(); resumeRun(b.dataset.resume); }
 });
+
+// ================= REDEEM CODES =================
+// Coin codes for friends. Codes are stored as hashes (never as plain text), each redeemable once per player.
+// No codes are live yet. To add one later: put TE.hash('CODE') (as a string) -> coins in REDEEM_CODES.
+const REDEEM_CODES = {}; // e.g. { '1234567890': 1000 }
+function redeemCode(raw) {
+  const code = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!code) return { ok: false, msg: 'Type a code first.' };
+  const d = Store.data, key = String(TE.hash('clutch-code:' + code));
+  d.redeemed = d.redeemed || [];
+  if (d.redeemed.includes(key)) return { ok: false, msg: "You've already used that code." };
+  const coins = REDEEM_CODES[key];
+  if (!coins) return { ok: false, msg: "That code isn't valid." };
+  d.redeemed.push(key); d.coins += coins; Store.save();
+  Sfx.trophy(); confetti(1400);
+  return { ok: true, msg: `Code redeemed: +${coins.toLocaleString()} coins!` };
+}
 
 // ================= BOOT =================
 const ACTIONS = {

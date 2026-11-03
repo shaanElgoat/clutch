@@ -61,6 +61,7 @@ function GamedayGame(xi, opp, diff, opts) {
   const me = { name: myName() === 'You' ? 'You' : myName(), xi, prof: TE.teamProfile(xi, { mods: opts.mods }) };
   const fresh = !opts.resumeG;
   const g = opts.resumeG || GD.create(me, opp, 'gdg:' + rid());
+  const G = g;
   if (fresh) g.halfRecv = 'them';
   if (fresh && opts.drill) { g.quarter = 4; g.clock = opts.drill.clock; g.score = { us: 17, them: 17 + opts.drill.deficit }; g.ball = opts.drill.ball; }
   // save after every snap; the daily drill and regular Gameday keep separate slots
@@ -88,13 +89,17 @@ function GamedayGame(xi, opp, diff, opts) {
     [10, 20, 30, 40, 50, 60, 70, 80, 90].map((y) => `<div class="yl" style="left:${8 + y * 0.84}%"></div><div class="yn" style="left:${8 + y * 0.84}%">${y <= 50 ? y : 100 - y}</div>`).join('') +
     `<div class="losl" id="los"></div><div class="fdl" id="fdl"></div><div class="ballm" id="ballm">${FOOTBALL}</div>`;
   const X = (yard) => `${8 + Math.max(0, Math.min(100, yard)) * 0.84}%`;
-  function drawField() {
+  // during a drive's playback we draw the state as it was right after each play, not the end of the drive
+  const at = (ev) => ({ score: ev.score, ball: ev.ballAfter, poss: ev.possAfter, down: ev.down, togo: ev.togo, clock: ev.clock, quarter: ev.quarter, ot: ev.ot });
+  function drawField(g0) {
+    const g = g0 || G;
     const ours = g.poss === 'us';
     const b = ours ? g.ball : 100 - g.ball;
     const fd = ours ? Math.min(100, g.ball + g.togo) : 100 - Math.min(100, g.ball + g.togo);
     $('#los', el).style.left = X(b); $('#fdl', el).style.left = X(fd); $('#ballm', el).style.left = X(b);
   }
-  function drawBoard(bump) {
+  function drawBoard(bump, g0) {
+    const g = g0 || G;
     const su = $('#sUs', el), sh = $('#sThem', el);
     if (+su.textContent !== g.score.us) { su.textContent = g.score.us; if (bump) su.classList.add('bump'); }
     if (+sh.textContent !== g.score.them) { sh.textContent = g.score.them; if (bump) sh.classList.add('bump'); }
@@ -168,8 +173,8 @@ function GamedayGame(xi, opp, diff, opts) {
     const evs = fn() || [];
     $('#deck', el).style.opacity = .4;
     for (const ev of evs) {
-      showPlay(ev); drawField(); drawBoard(true);
-      await sleep(isDef ? 750 : 450);
+      showPlay(ev); drawField(at(ev)); drawBoard(true, at(ev));
+      await sleep(isDef ? 950 : 450);
       if (!el.isConnected) return;
     }
     $('#deck', el).style.opacity = 1;

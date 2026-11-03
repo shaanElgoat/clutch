@@ -144,7 +144,7 @@
     if (t === 'half') { changePoss(g, g.halfRecv || 'them', 25); ev.half = true; }
     if (t === 'ot') { ev.otStart = true; changePoss(g, rand(g) < 0.5 ? 'us' : 'them', 25); }
     ev.score = { us: g.score.us, them: g.score.them };
-    ev.ballAfter = g.ball; ev.possAfter = g.poss; ev.down = g.down; ev.togo = g.togo; ev.quarter = g.quarter; ev.clock = g.clock;
+    ev.ballAfter = g.ball; ev.possAfter = g.poss; ev.down = g.down; ev.togo = g.togo; ev.quarter = g.quarter; ev.clock = g.clock; ev.ot = g.ot;
     g.events.push(ev);
     return ev;
   }
@@ -168,7 +168,7 @@
     if (t === 'half') { changePoss(g, g.halfRecv || 'them', 25); ev.half = true; }
     if (t === 'ot') { ev.otStart = true; changePoss(g, rand(g) < 0.5 ? 'us' : 'them', 25); }
     ev.score = { us: g.score.us, them: g.score.them };
-    ev.ballAfter = g.ball; ev.possAfter = g.poss; ev.down = g.down; ev.togo = g.togo; ev.quarter = g.quarter; ev.clock = g.clock;
+    ev.ballAfter = g.ball; ev.possAfter = g.poss; ev.down = g.down; ev.togo = g.togo; ev.quarter = g.quarter; ev.clock = g.clock; ev.ot = g.ot;
     g.events.push(ev);
     return ev;
   }

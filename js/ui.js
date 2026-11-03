@@ -348,7 +348,7 @@ const PACKS = [
   { id: 'std', name: 'Standard', cost: 500, n: 5, min: 0, grad: 'linear-gradient(150deg,#5b8cff,#2f5ef0)', blurb: '5 cards' },
   { id: 'pro', name: 'Pro', cost: 1500, n: 5, min: 90, grad: 'linear-gradient(150deg,#ffcf4d,#ff8a1a)', blurb: '5 cards · one 90+ guaranteed' },
   { id: 'leg', name: 'Legend', cost: 4000, n: 3, min: 95, grad: 'linear-gradient(150deg,#a78bff,#ff3d7f)', blurb: '3 cards · one 95+ guaranteed' },
-  { id: 'icon', name: 'Icon', cost: 20000, n: 5, mins: [99, 95, 95, 95], grad: 'linear-gradient(150deg,#1a1a2e 0%,#3a2b00 45%,#ffcf4d 100%)', blurb: '5 cards · four 95+ guaranteed, one of them a 99', icon: true },
+  { id: 'icon', name: 'Icon', cost: 20000, n: 5, mins: [95, 95, 95, 95, 95], grad: 'linear-gradient(150deg,#1a1a2e 0%,#3a2b00 45%,#ffcf4d 100%)', blurb: '5 cards · every card 95+', icon: true },
 ];
 function rollPack(pack) {
   const w = (r) => (r >= 95 ? 0.12 : r >= 90 ? 0.6 : r >= 85 ? 2 : r >= 80 ? 4 : 6);

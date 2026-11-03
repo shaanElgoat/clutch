@@ -1,14 +1,21 @@
 'use strict';
-// MY CLUB: build a lineup from cards you own (stars = +1 rating each) and climb the Rivals ladder, one season per month.
+// MY CLUB: build a lineup from cards you own (stars = +1 rating each) and climb the Rivals ladder, one season per week.
 const DIV_NAMES = { 10: 'Walk-on', 9: 'Practice Squad', 8: 'Rookie', 7: 'Starter', 6: 'Veteran', 5: 'Pro Bowl', 4: 'All-Pro', 3: 'Elite', 2: 'Legend', 1: 'Hall of Fame' };
 const divName = (d) => DIV_NAMES[d] || 'Walk-on';
-// ---- Rivals seasons: one per calendar month. When the month ends you're paid for the best
+// ---- Rivals seasons: one per week (Monday to Sunday). When the week ends you're paid for the best
 // division you reached, and everyone starts the new season back in Division 10.
 const SEASON_COINS = { 1: 5000, 2: 3500, 3: 2500, 4: 1800, 5: 1200, 6: 800, 7: 500, 8: 300, 9: 150, 10: 50 };
-const monthKey = (d) => todayKey(d).slice(0, 7);
-const seasonName = (k) => new Date(+k.slice(0, 4), +k.slice(5, 7) - 1, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+// a season is keyed by the date of its Monday, e.g. 'W2026-11-02'
+function weekStart(d) { d = d ? new Date(d) : new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d; }
+const seasonKey = (d) => 'W' + todayKey(weekStart(d));
+const seasonName = (k) => {
+  if (k[0] !== 'W') return new Date(+k.slice(0, 4), +k.slice(5, 7) - 1, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' }); // older monthly seasons
+  const [y, m, dd] = k.slice(1).split('-').map(Number);
+  return 'Week of ' + new Date(y, m - 1, dd).toLocaleString('en-US', { month: 'short', day: 'numeric' });
+};
 function seasonLeft() {
-  const n = new Date(), end = new Date(n.getFullYear(), n.getMonth() + 1, 1), ms = end - n;
+  const n = new Date(), end = weekStart(n); end.setDate(end.getDate() + 7);
+  const ms = end - n;
   const d = Math.floor(ms / 864e5), h = Math.floor(ms / 36e5) % 24, m = Math.floor(ms / 6e4) % 60;
   return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`;
 }
@@ -17,8 +24,10 @@ function clubData() {
   const c = Store.data.club;
   // drop cards you somehow no longer own
   c.xi = c.xi.map((pid) => (pid !== null && Store.data.coll[pid] ? pid : null));
-  const now = monthKey();
+  const now = seasonKey();
   if (!c.season) Object.assign(c, { season: now, sw: 0, sl: 0, sbest: c.div });
+  // switching from monthly to weekly seasons: carry this month's progress into this week (no surprise reset)
+  if (c.season[0] !== 'W') { c.season = now; Store.save(); }
   if (c.season !== now) {
     // season over: bank the reward (only if you played), then everyone resets to Division 10
     if (c.sw + c.sl > 0) c.seasonEnd = { season: c.season, best: c.sbest, coins: SEASON_COINS[c.sbest] || 50 };
@@ -34,7 +43,7 @@ function claimSeasonEnd() {
     <h2 class="d">${esc(seasonName(e.season))} is over</h2>
     <p>You finished the season in <b>Division ${e.best}</b> (${esc(divName(e.best))}).</p>
     <div class="hero-card center" style="margin:10px 0"><b style="font-size:22px">${ico('coin', 20)} +${e.coins.toLocaleString()} coins</b></div>
-    <p class="mute" style="font-weight:600;font-size:13px">A new season has started. Everyone is back in Division 10. Climb again before the month ends.</p></div>
+    <p class="mute" style="font-weight:600;font-size:13px">A new season has started. Everyone is back in Division 10. Climb again before Sunday night.</p></div>
     <button class="btn primary big" id="claim" style="margin-top:6px">Claim</button>`, (bg) => {
     $('#claim', bg).addEventListener('click', () => {
       Store.data.coins += e.coins; c.seasonEnd = null; Store.save();
@@ -90,7 +99,7 @@ function ClubScreen() {
     <div class="stat-grid"><div class="stat"><div class="si mint">${ico('check', 18)}</div><b>${c.sw}</b><small>Wins</small></div><div class="stat"><div class="si pink">${ico('x', 18)}</div><b>${c.sl}</b><small>Losses</small></div><div class="stat"><div class="si violet">${ico('crown', 18)}</div><b>Div ${c.top}</b><small>All-time best</small></div></div>
     <div class="section-title">Season rewards</div>
     <div class="season-rw">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((d) => `<div class="${d === c.sbest ? 'on' : ''}"><b>Div ${d}</b><small>${SEASON_COINS[d].toLocaleString()}</small></div>`).join('')}</div>
-    <p class="mute center" style="font-weight:600;font-size:12px;margin:8px 0 0">Paid at the end of the month for the best division you reach. Then everyone resets to Division 10.</p>
+    <p class="mute center" style="font-weight:600;font-size:12px;margin:8px 0 0">Paid at the end of every week for the best division you reach. Then everyone resets to Division 10.</p>
     <p class="mute center" style="font-weight:600;font-size:12.5px;margin:12px 0 0">${ownedIds().length} cards owned</p>`, 'has-tabs');
   tipOnce('club');
   tabbar('club');
@@ -204,7 +213,7 @@ function RivalsHub() {
       <p><b>Win</b> +1, <b>lose</b> −1. Fill the bar to move up a division.</p>
       <p>Lose with an empty bar and you <b>drop a division</b>. Division 10 is the floor.</p>
       <p><b>Checkpoints:</b> after a promotion you can't drop for 2–5 games (more in the lower divisions).</p>
-      <p>Each month is a new season. You're paid for your <b>best division</b>, then everyone restarts in Division 10.</p>
+      <p>Each <b>week</b> is a new season (Monday to Sunday). You're paid for your <b>best division</b>, then everyone restarts in Division 10.</p>
     </div>`);
   $('#back', el).addEventListener('click', () => { App.clubSeg = 'club'; goTab('club'); });
   $('#play', el).addEventListener('click', rivalsMatch);
@@ -261,6 +270,6 @@ function openClubReward() {
   if (c.reward === null || c.reward === undefined) return;
   const amt = PACKS[c.reward].cost;
   c.reward = null; Store.data.coins += amt; Store.save();
-  Sfx.achievement(); toast(`+${amt.toLocaleString()} coins`);
+  Sfx.coin(); toast(`+${amt.toLocaleString()} coins`);
   App.clubSeg = 'packs'; goTab('club');
 }

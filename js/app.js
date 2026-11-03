@@ -495,7 +495,7 @@ function redeemCode(raw) {
   const coins = REDEEM_CODES[key];
   if (!coins) return { ok: false, msg: "That code isn't valid." };
   d.redeemed.push(key); d.coins += coins; Store.save();
-  Sfx.trophy(); confetti(1400);
+  Sfx.coin(); Sfx.achievement(); confetti(1400);
   return { ok: true, msg: `Code redeemed: +${coins.toLocaleString()} coins!` };
 }
 

@@ -133,47 +133,110 @@ function collect(xi) {
 
 // ================= SOUND =================
 const Sfx = {
-  ctx: null,
+  // Synthesised in the browser (no audio files): every sound goes through a gentle compressor and a
+  // small "stadium" echo, so taps are soft and round, wins ring like bells and the crowd swells.
+  ctx: null, out: null, verb: null, noiseBuf: null,
   ensure() {
     if (!Store.data.sound) return null;
-    if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (_) { return null; } }
+    if (!this.ctx) {
+      try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (_) { return null; }
+      const c = this.ctx;
+      const comp = c.createDynamicsCompressor();
+      comp.threshold.value = -16; comp.knee.value = 18; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.2;
+      const master = c.createGain(); master.gain.value = 0.85;
+      comp.connect(master).connect(c.destination);
+      this.out = comp;
+      // a short, airy reverb tail (generated impulse) gives everything some room
+      const len = Math.floor(c.sampleRate * 1.6), ir = c.createBuffer(2, len, c.sampleRate);
+      for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
+      const conv = c.createConvolver(); conv.buffer = ir;
+      const wet = c.createGain(); wet.gain.value = 0.22;
+      conv.connect(wet).connect(comp);
+      this.verb = conv;
+      const nb = c.createBuffer(1, c.sampleRate * 2, c.sampleRate), nd = nb.getChannelData(0);
+      for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+      this.noiseBuf = nb;
+    }
     if (this.ctx.state === 'suspended') this.ctx.resume();
     return this.ctx;
   },
-  tone(freq, dur, type, vol, slide, delay) {
+  // one voice: oscillator(s) with an attack/decay envelope, optional pitch slide, filter and echo send
+  voice(o) {
     const c = this.ensure(); if (!c) return;
-    const t = c.currentTime + (delay || 0);
-    const o = c.createOscillator(), g = c.createGain();
-    o.type = type || 'sine'; o.frequency.setValueAtTime(freq, t);
-    if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol || 0.12, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g).connect(c.destination); o.start(t); o.stop(t + dur + 0.02);
+    const t = c.currentTime + (o.delay || 0), dur = o.dur || 0.2, vol = o.vol || 0.1, atk = o.atk || 0.005;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + atk);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    let node = g;
+    if (o.lp) { const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(o.lp, t); if (o.lpTo) f.frequency.exponentialRampToValueAtTime(o.lpTo, t + dur); f.Q.value = o.q || 0.8; g.connect(f); node = f; }
+    node.connect(this.out);
+    if (o.verb) { const s = c.createGain(); s.gain.value = o.verb; node.connect(s).connect(this.verb); }
+    (o.detune ? [-o.detune, o.detune] : [0]).forEach((dt) => {
+      const osc = c.createOscillator();
+      osc.type = o.type || 'sine';
+      osc.frequency.setValueAtTime(o.f, t); osc.detune.value = dt;
+      if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t + dur);
+      if (o.vib) { const l = c.createOscillator(), lg = c.createGain(); l.frequency.value = o.vib; lg.gain.value = o.vibAmt || 40; l.connect(lg).connect(osc.frequency); l.start(t); l.stop(t + dur + 0.05); }
+      osc.connect(g); osc.start(t); osc.stop(t + dur + 0.05);
+    });
   },
-  noise(dur, vol, freq, q) {
+  // filtered noise with its own envelope (crowds, thuds, swooshes)
+  hiss(o) {
     const c = this.ensure(); if (!c) return;
-    const b = c.createBuffer(1, Math.max(1, c.sampleRate * dur), c.sampleRate), d = b.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / d.length);
-    const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
-    f.type = 'bandpass'; f.frequency.value = freq || 1200; f.Q.value = q || 0.6;
-    g.gain.value = vol || 0.15; s.buffer = b; s.connect(f).connect(g).connect(c.destination); s.start();
+    const t = c.currentTime + (o.delay || 0), dur = o.dur || 0.3;
+    const s = c.createBufferSource(); s.buffer = this.noiseBuf; s.loop = true;
+    const f = c.createBiquadFilter(); f.type = o.type || 'bandpass'; f.frequency.setValueAtTime(o.f || 1000, t); if (o.to) f.frequency.exponentialRampToValueAtTime(o.to, t + dur); f.Q.value = o.q || 0.7;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(o.vol || 0.1, t + (o.atk || 0.01));
+    g.gain.setValueAtTime(o.vol || 0.1, t + Math.max(o.atk || 0.01, dur * (o.hold || 0)));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f).connect(g).connect(this.out);
+    if (o.verb) { const v = c.createGain(); v.gain.value = o.verb; g.connect(v).connect(this.verb); }
+    s.start(t, Math.random() * 1.5); s.stop(t + dur + 0.05);
   },
-  tick() { this.tone(1800, 0.025, 'square', 0.02); },
-  land() { this.tone(523, 0.1, 'triangle', 0.14); this.tone(784, 0.18, 'triangle', 0.12, null, 0.08); },
-  place() { this.tone(180, 0.12, 'sine', 0.25, 90); this.noise(0.08, 0.06, 2600); },
-  select() { this.tone(880, 0.05, 'sine', 0.07); },
-  tap() { this.tone(660, 0.04, 'sine', 0.05); },
-  win() { this.tone(660, 0.07, 'triangle', 0.05); },
-  loss() { this.tone(180, 0.12, 'sawtooth', 0.03, 130); },
-  crowd(big) { this.noise(big ? 2.4 : 1.2, big ? 0.24 : 0.12, 850, 0.5); },
-  groan() { this.noise(1.3, 0.1, 300); this.tone(220, 0.6, 'sine', 0.05, 140); },
-  trophy() { [523, 659, 784, 1046].forEach((f, i) => this.tone(f, 0.4, 'triangle', 0.12, null, i * 0.11)); setTimeout(() => this.crowd(true), 300); },
-  whistle() { this.tone(2350, 0.3, 'sine', 0.05, 2150); },
-  heartbeat() { this.tone(62, 0.13, 'sine', 0.32, 40); this.tone(58, 0.13, 'sine', 0.28, 38, 0.17); },
-  achievement() { [784, 988, 1175].forEach((f, i) => this.tone(f, 0.25, 'triangle', 0.1, null, i * 0.09)); },
-  levelUp() { [523, 659, 784, 1046, 1318].forEach((f, i) => this.tone(f, 0.3, 'square', 0.05, null, i * 0.08)); },
-  hit() { this.noise(0.18, 0.2, 180, 1.2); this.tone(90, 0.15, 'sine', 0.25, 50); },
-  good() { this.tone(988, 0.12, 'triangle', 0.1); this.tone(1318, 0.18, 'triangle', 0.08, null, 0.1); },
-  bad() { this.tone(240, 0.25, 'square', 0.05, 160); },
+  bell(f, delay, vol, dur) {
+    this.voice({ f, type: 'sine', dur: dur || 0.7, vol: vol || 0.09, delay, verb: 0.5 });
+    this.voice({ f: f * 2.01, type: 'sine', dur: (dur || 0.7) * 0.5, vol: (vol || 0.09) * 0.35, delay, verb: 0.4 });
+    this.voice({ f: f * 3.98, type: 'sine', dur: (dur || 0.7) * 0.25, vol: (vol || 0.09) * 0.12, delay });
+  },
+  // kept for compatibility with older callers
+  tone(freq, dur, type, vol, slide, delay) { this.voice({ f: freq, dur, type, vol, to: slide, delay }); },
+  noise(dur, vol, freq, q) { this.hiss({ dur, vol, f: freq, q }); },
+
+  tap() { this.voice({ f: 560, to: 430, type: 'sine', dur: 0.07, vol: 0.06 }); this.hiss({ f: 4200, q: 1.2, dur: 0.02, vol: 0.02 }); },
+  select() { this.voice({ f: 1320, type: 'triangle', dur: 0.12, vol: 0.05, verb: 0.3 }); this.voice({ f: 2640, type: 'sine', dur: 0.06, vol: 0.015 }); },
+  tick() { this.hiss({ f: 3200, q: 4, dur: 0.018, vol: 0.05 }); },
+  place() { this.voice({ f: 170, to: 70, type: 'sine', dur: 0.16, vol: 0.28 }); this.hiss({ f: 900, q: 0.8, dur: 0.08, vol: 0.05 }); this.bell(1568, 0.04, 0.03, 0.35); },
+  land() { this.bell(784, 0, 0.08, 0.5); this.bell(1175, 0.09, 0.07, 0.7); },
+  good() { this.bell(1047, 0, 0.07, 0.45); this.bell(1319, 0.07, 0.06, 0.5); this.bell(1568, 0.14, 0.05, 0.7); },
+  bad() { this.voice({ f: 330, to: 196, type: 'triangle', dur: 0.32, vol: 0.09, lp: 1200 }); this.voice({ f: 247, to: 147, type: 'triangle', dur: 0.36, vol: 0.06, delay: 0.08, lp: 900 }); },
+  win() { this.voice({ f: 660, to: 990, type: 'triangle', dur: 0.12, vol: 0.05, verb: 0.2 }); },
+  loss() { this.voice({ f: 220, to: 150, type: 'triangle', dur: 0.2, vol: 0.05, lp: 800 }); },
+  coin() { this.bell(1976, 0, 0.06, 0.25); this.bell(2637, 0.07, 0.07, 0.5); },
+  hit() { this.hiss({ type: 'lowpass', f: 500, to: 120, dur: 0.22, vol: 0.32 }); this.voice({ f: 110, to: 45, type: 'sine', dur: 0.2, vol: 0.32 }); },
+  heartbeat() { [0, 0.2].forEach((d, i) => { this.voice({ f: 70, to: 38, type: 'sine', dur: 0.16, vol: i ? 0.34 : 0.42, delay: d, lp: 200 }); }); },
+  // a real referee whistle: pea-rattle vibrato, two blasts
+  whistle() { [0, 0.34].forEach((d, i) => { this.voice({ f: 2650, type: 'sine', dur: i ? 0.42 : 0.18, vol: 0.05, delay: d, vib: 32, vibAmt: 90, atk: 0.01, verb: 0.25 }); this.hiss({ f: 2700, q: 3, dur: i ? 0.42 : 0.18, vol: 0.02, delay: d }); }); },
+  // stadium crowd: a swelling roar with a few "whoo"s on top
+  crowd(big) {
+    const dur = big ? 2.8 : 1.5, vol = big ? 0.2 : 0.11;
+    this.hiss({ f: 700, q: 0.5, dur, vol, atk: 0.25, hold: 0.35, verb: 0.6 });
+    this.hiss({ f: 1800, q: 0.9, dur: dur * 0.9, vol: vol * 0.5, atk: 0.3, hold: 0.3, verb: 0.5 });
+    for (let k = 0; k < (big ? 5 : 2); k++) this.voice({ f: 520 + Math.random() * 380, to: 700 + Math.random() * 500, type: 'sawtooth', dur: 0.5, vol: 0.012, delay: 0.15 + Math.random() * dur * 0.5, lp: 1400, vib: 6, vibAmt: 25, verb: 0.6 });
+  },
+  // the crowd's "awww"
+  groan() { this.hiss({ f: 650, to: 260, q: 1.4, dur: 1.4, vol: 0.12, atk: 0.12, hold: 0.2, verb: 0.5 }); this.voice({ f: 300, to: 190, type: 'sawtooth', dur: 1.1, vol: 0.018, lp: 700, delay: 0.05 }); },
+  // brass fanfare, then the crowd
+  trophy() {
+    const brass = (f, d, len) => this.voice({ f, type: 'sawtooth', dur: len, vol: 0.06, delay: d, lp: 700, lpTo: 2600, atk: 0.04, detune: 7, verb: 0.45 });
+    brass(392, 0, 0.22); brass(523, 0.18, 0.22); brass(659, 0.36, 0.22); brass(784, 0.54, 0.9);
+    brass(523, 0.54, 0.9); brass(659, 0.54, 0.9);
+    setTimeout(() => this.crowd(true), 450);
+  },
+  achievement() { [1047, 1319, 1568, 2093].forEach((f, i) => this.bell(f, i * 0.08, 0.06, 0.6)); },
+  levelUp() { [523, 659, 784, 1047, 1319].forEach((f, i) => this.bell(f, i * 0.07, 0.07, 0.7)); this.hiss({ f: 6000, q: 0.5, dur: 0.8, vol: 0.03, delay: 0.3, verb: 0.6 }); },
 };
 const buzz = (ms) => { if (Store.data.haptics && navigator.vibrate && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) try { navigator.vibrate(ms); } catch (_) {} };
 

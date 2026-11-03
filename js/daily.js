@@ -6,55 +6,65 @@ const savePuzzle = (k, v) => { Store.data.puzzles[k + ':' + dayKey()] = v; Store
 const shake = (el) => { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); };
 
 // =====================================================================
-// THE GRID: rows are teams, columns are categories. Name a player who fits both.
+// THE GRID: rows are teams, columns are categories. Name a player on that team's CURRENT
+// (2026) roster who fits both. Past eras don't count, so it's a test of who's in the league now.
 // =====================================================================
+// names on each team's 2025 roster, for the "new this season" column
+let GRID_LAST = null;
+const gridLast = (ti) => {
+  if (!GRID_LAST) { GRID_LAST = {}; TE.SQUADS.forEach((sq) => { if (sq.era === '25') GRID_LAST[sq.team] = new Set(sq.players.map((id) => TE.PLAYERS[id].name)); }); }
+  return GRID_LAST[ti] || new Set();
+};
 const GRID_COLS = [
-  { id: '90s', label: '1990s', short: "'90s", t: (p) => p.era === '90s' },
-  { id: '00s', label: '2000s', short: "'00s", t: (p) => p.era === '00s' },
-  { id: '10s', label: '2010s', short: "'10s", t: (p) => p.era === '10s' },
-  { id: '20s', label: '2020s', short: "'20s", t: (p) => p.era === '20s' },
-  { id: 'now', label: '2026 roster', short: "'26", t: (p) => TE.isCurrent(p.id) },
   { id: 'QB', label: 'Quarterback', short: 'QB', t: (p) => p.pos === 'QB' },
   { id: 'RB', label: 'Running back', short: 'RB', t: (p) => p.pos === 'RB' },
-  { id: 'WRTE', label: 'Receiver or TE', short: 'WR/TE', t: (p) => p.pos === 'WR' || p.pos === 'TE' },
+  { id: 'WR', label: 'Wide receiver', short: 'WR', t: (p) => p.pos === 'WR' },
+  { id: 'TE', label: 'Tight end', short: 'TE', t: (p) => p.pos === 'TE' },
   { id: 'LINE', label: 'Lineman', short: 'OL/DL', t: (p) => p.pos === 'OL' || p.pos === 'DL' },
   { id: 'LB', label: 'Linebacker', short: 'LB', t: (p) => p.pos === 'LB' },
   { id: 'DB', label: 'Defensive back', short: 'CB/S', t: (p) => p.pos === 'CB' || p.pos === 'S' },
   { id: 'HC', label: 'Head coach', short: 'Coach', t: (p) => p.pos === 'HC' },
   { id: '90', label: 'Rated 90+', short: '90+', t: (p) => p.r >= 90 },
-  { id: '95', label: 'Rated 95+', short: '95+', t: (p) => p.r >= 95 },
+  { id: '85', label: 'Rated 85–89', short: '85–89', t: (p) => p.r >= 85 && p.r < 90 },
+  { id: 'u80', label: 'Rated under 80', short: '<80', t: (p) => p.r < 80 },
+  { id: 'new', label: 'New this season', short: 'New', t: (p) => !gridLast(p.team).has(p.name) },
 ];
+const GRID_POS = ['QB', 'RB', 'WR', 'TE', 'LINE', 'LB', 'DB', 'HC'];
 function gridFor(seed) {
-  const r = TE.rng('grid:' + seed);
-  for (let tries = 0; tries < 400; tries++) {
-    const teams = TE.shuffle(r, TE.DATA.TEAMS.map((t, i) => i)).slice(0, 3);
-    const cols = TE.shuffle(r, GRID_COLS.map((c, i) => i)).slice(0, 3);
-    if (cols.filter((c) => /^(\d\ds|now)$/.test(GRID_COLS[c].id)).length > 1) continue;
-    const ok = teams.every((ti) => cols.every((ci) => gridAnswers(ti, ci).length >= 2));
-    if (ok) return { teams, cols };
+  const r = TE.rng('grid26:' + seed);
+  // prefer boards where every square has at least 2 answers, then settle for 1
+  for (let need = 2; need >= 1; need--) {
+    for (let tries = 0; tries < 400; tries++) {
+      const teams = TE.shuffle(r, TE.DATA.TEAMS.map((t, i) => i)).slice(0, 3);
+      const cols = TE.shuffle(r, GRID_COLS.map((c, i) => i)).slice(0, 3);
+      // at most two position columns, so every board mixes in a rating or "new" column
+      if (cols.filter((c) => GRID_POS.includes(GRID_COLS[c].id)).length > 2) continue;
+      if (teams.every((ti) => cols.every((ci) => gridAnswers(ti, ci).length >= need))) return { teams, cols };
+    }
   }
-  return { teams: [0, 1, 2], cols: [0, 4, 11] };
+  return { teams: [0, 1, 2], cols: [0, 8, 11] };
 }
 function gridAnswers(ti, ci) {
   const names = new Set();
-  TE.PLAYERS.forEach((p) => { if (p.team === ti && GRID_COLS[ci].t(p)) names.add(p.name); });
+  TE.PLAYERS.forEach((p) => { if (p.team === ti && TE.isCurrent(p.id) && GRID_COLS[ci].t(p)) names.add(p.name); });
   return [...names];
 }
-// does this person (any of his cards) fit the cell?
+// does this person fit the cell? (only his current card counts)
 function gridFit(pid, ti, ci) {
   const name = TE.PLAYERS[pid].name;
-  return TE.PLAYERS.find((p) => p.name === name && p.team === ti && GRID_COLS[ci].t(p)) || null;
+  return TE.PLAYERS.find((p) => p.name === name && p.team === ti && TE.isCurrent(p.id) && GRID_COLS[ci].t(p)) || null;
 }
 function GridGame(practiceSeed) {
   tipOnce('grid');
   const daily = !practiceSeed;
   const seed = daily ? dayKey() : practiceSeed;
   const G = gridFor(seed);
-  const st = (daily && puzzle('grid')) || { cells: new Array(9).fill(null), left: 9, done: false };
+  const saved = daily && puzzle('grid');
+  const st = saved && saved.v === 2 ? saved : { v: 2, cells: new Array(9).fill(null), left: 9, done: false };
   const save = () => { if (daily) savePuzzle('grid', st); };
   const el = go(`
     <div class="topbar"><button class="icon-btn" data-act="home">${ico('back', 20)}</button><div class="grow"><h2 class="d">The Grid</h2><div class="mute" style="font-weight:700;font-size:12px">${daily ? 'Daily #' + dailyNumber(dayKey()) : 'Practice'}</div></div><span class="pill blue">Guesses <b id="left">${st.left}</b></span></div>
-    <p class="mute" style="font-weight:600;margin:0 0 12px;font-size:14px">Name a player who fits the row and the column. Each player can only be used once.</p>
+    <p class="mute" style="font-weight:600;margin:0 0 12px;font-size:14px">Name a player on that team's <b>2026 roster</b> who fits the column. Each player can only be used once.</p>
     <div class="grid9" id="g"></div>
     <div id="after"></div>`);
   const draw = () => {
@@ -74,7 +84,7 @@ function GridGame(practiceSeed) {
   const guess = async (k, btn) => {
     if (st.done || st.left <= 0) return;
     const ti = G.teams[Math.floor(k / 3)], ci = G.cols[k % 3];
-    const pid = await pickPlayer({ title: `${TE.DATA.TEAMS[ti].short} × ${GRID_COLS[ci].label}`, namesOnly: true, exclude: (id) => (used().indexOf(TE.PLAYERS[id].name) >= 0 ? 'already used' : null) });
+    const pid = await pickPlayer({ title: `${TE.DATA.TEAMS[ti].short} × ${GRID_COLS[ci].label}`, namesOnly: true, filter: (id) => TE.isCurrent(id), exclude: (id) => (used().indexOf(TE.PLAYERS[id].name) >= 0 ? 'already used' : null) });
     if (pid === null || !el.isConnected) return;
     st.left--;
     const fit = gridFit(pid, ti, ci);
@@ -377,7 +387,7 @@ function Packs() {
     <p class="mute center" style="font-weight:600;font-size:12.5px;margin:14px 8px 0;line-height:1.5">Packs are the only way to get cards. Your cards build My Club, level up with duplicates, and can be played as Wildcards.</p>`, 'has-tabs');
   tabbar('club');
   const fp = $('#free', el);
-  if (fp) fp.addEventListener('click', () => { d.freePack = dayKey(); d.coins += DAILY_COINS; Store.save(); Sfx.achievement(); toast(`+${DAILY_COINS} coins`); Packs(); });
+  if (fp) fp.addEventListener('click', () => { d.freePack = dayKey(); d.coins += DAILY_COINS; Store.save(); Sfx.coin(); toast(`+${DAILY_COINS} coins`); Packs(); });
   $$('[data-pack]', el).forEach((b) => b.addEventListener('click', () => {
     const p = PACKS[+b.dataset.pack];
     if (d.coins < p.cost) return;

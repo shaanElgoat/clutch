@@ -476,8 +476,16 @@ document.addEventListener('click', (e) => {
 
 // ================= REDEEM CODES =================
 // Coin codes for friends. Codes are stored as hashes (never as plain text), each redeemable once per player.
-// No codes are live yet. To add one later: put TE.hash('CODE') (as a string) -> coins in REDEEM_CODES.
-const REDEEM_CODES = {}; // e.g. { '1234567890': 1000 }
+// To add one: put String(TE.hash('clutch-code:' + CODE)) -> coins in REDEEM_CODES.
+// hashed code -> coins (six codes, 500 to 20,000; the plain words are only in the chat with the owner)
+const REDEEM_CODES = {
+  '3129494278': 500,
+  '3729722230': 1000,
+  '3484154157': 2500,
+  '3017167308': 5000,
+  '1781168503': 10000,
+  '2603178698': 20000,
+};
 function redeemCode(raw) {
   const code = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (!code) return { ok: false, msg: 'Type a code first.' };

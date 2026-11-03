@@ -348,6 +348,7 @@ const PACKS = [
   { id: 'std', name: 'Standard', cost: 500, n: 5, min: 0, grad: 'linear-gradient(150deg,#5b8cff,#2f5ef0)', blurb: '5 cards' },
   { id: 'pro', name: 'Pro', cost: 1500, n: 5, min: 90, grad: 'linear-gradient(150deg,#ffcf4d,#ff8a1a)', blurb: '5 cards · one 90+ guaranteed' },
   { id: 'leg', name: 'Legend', cost: 4000, n: 3, min: 95, grad: 'linear-gradient(150deg,#a78bff,#ff3d7f)', blurb: '3 cards · one 95+ guaranteed' },
+  { id: 'icon', name: 'Icon', cost: 20000, n: 5, mins: [99, 95, 95, 95], grad: 'linear-gradient(150deg,#1a1a2e 0%,#3a2b00 45%,#ffcf4d 100%)', blurb: '5 cards · four 95+ guaranteed, one of them a 99', icon: true },
 ];
 function rollPack(pack) {
   const w = (r) => (r >= 95 ? 0.12 : r >= 90 ? 0.6 : r >= 85 ? 2 : r >= 80 ? 4 : 6);
@@ -360,7 +361,9 @@ function rollPack(pack) {
     return pool[0].id;
   };
   const out = [];
-  if (pack.min) out.push(draw((p) => p.r >= pack.min));
+  (pack.mins || (pack.min ? [pack.min] : [])).forEach((m) => {
+    for (let k = 0; k < 20; k++) { const id = draw((p) => p.r >= m); if (out.indexOf(id) < 0) { out.push(id); break; } }
+  });
   while (out.length < pack.n) { const id = draw(); if (out.indexOf(id) < 0) out.push(id); }
   return out.sort(() => Math.random() - 0.5).sort((a, b) => TE.PLAYERS[a].r - TE.PLAYERS[b].r);
 }

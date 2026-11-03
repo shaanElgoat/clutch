@@ -1095,3 +1095,7 @@ html, body { overflow-x: clip; }
 .code-box { display: flex; gap: 8px; align-items: center; }
 .code-box .field { text-transform: uppercase; letter-spacing: .12em; font-weight: 800; }
 .code-box .btn { flex: none; padding: 14px 16px; }
+/* Icon pack: black and gold, with a slow shine */
+.pack-art[style*="#1a1a2e"], .pack-big[style*="#1a1a2e"] { box-shadow: 0 0 0 2px #ffcf4d, 0 10px 26px -8px rgba(255,191,31,.7); }
+.pack-art[style*="#1a1a2e"] b, .pack-big[style*="#1a1a2e"] b { color: #ffe08a; text-shadow: 0 2px 0 rgba(0,0,0,.3); }
+.pack-art[style*="#1a1a2e"] .pa-shine, .pack-big[style*="#1a1a2e"] .pa-shine { animation-duration: 2.2s; }

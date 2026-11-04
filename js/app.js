@@ -24,11 +24,11 @@ const triviaLeft = () => [!!(puzzle('grid') && puzzle('grid').done), !!(puzzle('
 const dailyLeft = () => [!!Store.data.daily[todayKey()], !!(puzzle('grid') && puzzle('grid').done), !!(puzzle('who') && puzzle('who').done), !!puzzle('drill')].filter((x) => !x).length;
 function goTab(id) {
   App.tab = id;
-  ({ play: Home, games: GamesTab, daily: GamesTab, club: () => (App.clubSeg === 'packs' ? Packs : App.clubSeg === 'binder' ? Cards : ClubScreen)(), trophies: Trophies, me: Profile })[id]();
+  ({ play: Home, games: GamesTab, daily: GamesTab, club: () => (App.clubSeg === 'packs' ? Packs : App.clubSeg === 'binder' ? Cards : App.clubSeg === 'goals' ? Objectives : ClubScreen)(), trophies: Trophies, me: Profile })[id]();
 }
 function tabbar(active) {
   App.tab = active;
-  const dot = { games: triviaLeft() > 0, club: freePackReady() || claimable() > 0 || !!clubData().seasonEnd };
+  const dot = { games: triviaLeft() > 0, club: freePackReady() || claimable() > 0 || Obj.ready() > 0 || Obj.data().packs.length > 0 || !!clubData().seasonEnd };
   const bar = document.createElement('nav');
   bar.className = 'tabbar';
   bar.innerHTML = TABS.map(([id, ic, lbl]) => `<button class="${id === active ? 'on' : ''}" data-tab="${id}">${ico(ic, 22)}<span>${lbl}</span>${dot[id] ? '<i class="badge-dot"></i>' : ''}</button>`).join('');
@@ -41,9 +41,9 @@ function tabbar(active) {
 // segmented header shared by the three Club pages
 function clubSeg(active) {
   App.clubSeg = active;
-  const segs = [['club', 'My Club'], ['packs', 'Packs'], ['binder', 'Binder']];
+  const segs = [['club', 'My Club'], ['goals', 'Objectives'], ['packs', 'Packs'], ['binder', 'Binder']];
   return `<div class="topbar"><h2 class="d grow">Club</h2>${coinsChip()}</div>
-    <div class="seg">${segs.map(([id, l]) => `<button class="${id === active ? 'on' : ''}" data-act="${id}">${l}${(id === 'packs' && freePackReady()) || (id === 'binder' && claimable()) ? '<i class="badge-dot"></i>' : ''}</button>`).join('')}</div>`;
+    <div class="seg">${segs.map(([id, l]) => `<button class="${id === active ? 'on' : ''}" data-act="${id}">${l}${(id === 'packs' && (freePackReady() || Obj.data().packs.length)) || (id === 'binder' && claimable()) || (id === 'goals' && Obj.ready()) ? '<i class="badge-dot"></i>' : ''}</button>`).join('')}</div>`;
 }
 function levelChip() {
   const xp = Store.data.xp, l = levelOf(xp), a = xpFor(l), b = xpFor(l + 1);
@@ -181,7 +181,7 @@ function soloSeason(mode, st, blind, resume) {
     if (mode === 'daily') {
       Store.data.daily[todayKey()] = { s: st.seed, xi, c: choices[0], title: TE.verdict(r).title, rec: rec(r), score: r.score, w: r.w, l: r.l, st: r.stage, o: Math.round(r.prof.ovr) };
       Store.save(); addXP(50);
-      Board.submit(todayKey(), Board.entry(r));
+      Board.submit(todayKey(), Board.entry(r)); Obj.hit('daily');
       if (dailyStreak() >= 3) unlock('daily3');
     }
     soloResults(mode, r, st.seed, xi, choices[0], blind);
@@ -501,7 +501,7 @@ function redeemCode(raw) {
 
 // ================= BOOT =================
 const ACTIONS = {
-  home: () => goTab(App.tab || 'play'), tour: () => startTour(), dailytab: () => goTab('games'), duel: () => runOr('duel', DuelStart), cap: () => runOr('cap', CapStart), binder: Cards, help: Help, quit: () => quitDraft(), season: () => runOr('season', () => SeasonSetup('quick')), daily: () => (Runs.get('daily') ? resumeRun('daily') : openDaily()), gameday: () => runOr('gameday', GamedayStart),
+  home: () => goTab(App.tab || 'play'), tour: () => startTour(), dailytab: () => goTab('games'), duel: () => runOr('duel', DuelStart), cap: () => runOr('cap', CapStart), binder: Cards, goals: Objectives, help: Help, quit: () => quitDraft(), season: () => runOr('season', () => SeasonSetup('quick')), daily: () => (Runs.get('daily') ? resumeRun('daily') : openDaily()), gameday: () => runOr('gameday', GamedayStart),
   hl: () => runOr('hl', WhosBetter), friends: FriendsMenu, party: () => runOr('party', PartySetup), online: () => OnlineScreen(),
   club: () => ClubScreen(), grid: () => GridGame(), who: () => MysteryGame(), drill: () => (Runs.get('drill') ? resumeRun('drill') : DrillStart()), kick: () => runOr('kick', KickIt), packs: Packs,
 };

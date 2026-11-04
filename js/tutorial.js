@@ -73,6 +73,7 @@ function startTour() {
     { sel: '[data-tour="h2h"]', title: 'Head to head', text: '<b>Draft Duel</b>: out-draft a CPU GM, then a best-of-3. <b>Salary Cap</b>: build a team on a budget. <b>Gameday</b>: call every play yourself.' },
     { sel: '.tabbar [data-tab="club"]', title: 'Your Club', text: 'The <b>Club</b> tab is where you collect cards and build your own team.' },
     { go: seg('packs'), sel: '.packs', title: 'Packs', text: 'Packs are the <b>only way to get cards</b>. You earn coins from every game you play, plus free coins every day.' },
+    { go: seg('goals'), sel: '.objs', title: 'Objectives', text: 'Free packs for playing. <b>Daily</b> and <b>weekly</b> objectives refresh, and <b>forever</b> milestones pay out once (the big ones give Legend and Icon packs).' },
     { go: seg('club'), sel: '.club-hero', title: 'My Club + Rivals', text: 'Build a team from your cards, then climb <b>Rivals</b>: 10 divisions against the CPU. A new season starts every week, and you\'re paid for how high you finish.' },
     { sel: '.tabbar [data-tab="trophies"]', title: 'Trophies', text: 'Achievements and all your best records.' },
     { sel: '.tabbar [data-tab="me"]', title: 'Me', text: 'Your name, field themes you unlock as you level up, sound, and <b>replay this tour</b> any time.' },

@@ -95,7 +95,7 @@ function GridGame(practiceSeed) {
   const finish = () => {
     st.done = true;
     const n = st.cells.filter(Boolean).length;
-    addXP(20 + n * 10);
+    addXP(20 + n * 10); Obj.hit('puzzle');
     if (n === 9) { unlock('grid9'); confetti(); Sfx.trophy(); }
   };
   const after = () => {
@@ -160,8 +160,8 @@ function MysteryGame(practiceSeed) {
     if (pid === null || !el.isConnected) return;
     st.guesses.push(pid);
     const c = compareGuess(pid, tid);
-    if (c.win) { st.done = true; st.win = true; Sfx.trophy(); confetti(); addXP(40 + (8 - st.guesses.length) * 15); if (st.guesses.length <= 4) unlock('mystery'); }
-    else if (st.guesses.length >= 8) { st.done = true; Sfx.groan(); addXP(15); }
+    if (c.win) { st.done = true; st.win = true; Sfx.trophy(); confetti(); addXP(40 + (8 - st.guesses.length) * 15); Obj.hit('puzzle'); if (st.guesses.length <= 4) unlock('mystery'); }
+    else if (st.guesses.length >= 8) { st.done = true; Sfx.groan(); addXP(15); Obj.hit('puzzle'); }
     else Sfx.tap();
     save(); draw();
   };
@@ -216,7 +216,7 @@ function drillFinish(g, opts, el) {
   const title = res === 'win' ? 'Game-winning drive!' : res === 'tie' ? 'Sent it to overtime' : 'Came up short';
   const line = `${us}-${them} · ${plays} plays${res === 'win' ? ' · ' + left + ' left' : ''}`;
   if (res === 'win') { unlock('drill'); Store.data.stats.drillWins++; addXP(120); confetti(); Sfx.trophy(); } else if (res === 'tie') { addXP(50); Sfx.good(); } else { addXP(25); Sfx.groan(); }
-  if (opts.daily) savePuzzle('drill', { res, title, line });
+  if (opts.daily) { savePuzzle('drill', { res, title, line }); Obj.hit('puzzle'); }
   Runs.clear('drill');
   Store.save();
   $('#deck', el).innerHTML = `<div class="outcome ${res === 'loss' ? 'loss' : 'win'}"><h2>${res === 'win' ? 'Clutch!' : res === 'tie' ? 'Tied' : 'Stopped'}</h2><p>${title}</p><p class="mute" style="font-size:14px">${line}</p></div>
@@ -354,7 +354,7 @@ function KickIt(resume) {
     S.phase = 'over';
     const prev = S.prevBest;
     if (S.made > prev) { Store.data.stats.kickBest = S.made; Store.save(); }
-    addXP(10 + S.made * 12);
+    addXP(10 + S.made * 12); Obj.hit('kick', S.made);
     $('#tip', el).textContent = '';
     $('#kover', el).innerHTML = `<div class="outcome ${S.made > prev ? 'win' : 'loss'}"><h2>${S.made} made</h2><p>Longest: ${S.longest || '-'} yards${S.made > prev ? ' · New best!' : ' · Best: ' + prev}</p></div>
       <div class="actions"><button class="btn primary" id="re">${ico('refresh', 18)} Kick again</button><div class="two"><button class="btn" id="sh">${ico('share', 18)} Share</button><button class="btn" data-act="home">Home</button></div></div>`;
@@ -382,12 +382,18 @@ function Packs() {
   const el = go(`
     ${clubSeg('packs')}
     ${freePackReady() ? `<button class="free-pack" id="free"><div class="fp-ic">${ico('coin', 28)}</div><div class="grow"><b>Daily coins: +${DAILY_COINS}</b><small>Free coins every day. Spend them on packs.</small></div><span class="chip on">Claim</span></button>` : ''}
+    ${Obj.data().packs.length ? `<div class="group-title">Your packs</div><div class="owned-packs">${Obj.data().packs.map((id, k) => { const p = PACKS.find((x) => x.id === id); return p ? `<button class="owned" data-own="${k}"><div class="pack-art" style="background:${p.grad}"><div class="pa-shine"></div><span>CLUTCH</span><b>${p.name}</b></div><small>Open</small></button>` : ''; }).join('')}</div><div class="group-title">Buy packs</div>` : ''}
     <div class="packs">${PACKS.map((p, i) => `<div class="packcard"><div class="pack-art" style="background:${p.grad}"><div class="pa-shine"></div><span>CLUTCH</span><b>${p.name}</b></div>
       <div class="pk-info"><b>${p.name} pack</b><small>${p.blurb}</small><button class="btn ${d.coins >= p.cost ? 'primary' : ''} small" data-pack="${i}" ${d.coins >= p.cost ? '' : 'disabled'}>${ico('coin', 16)} ${p.cost.toLocaleString()}</button></div></div>`).join('')}</div>
     <p class="mute center" style="font-weight:600;font-size:12.5px;margin:14px 8px 0;line-height:1.5">Packs are the only way to get cards. Your cards build My Club, level up with duplicates, and can be played as Wildcards.</p>`, 'has-tabs');
   tabbar('club');
   const fp = $('#free', el);
   if (fp) fp.addEventListener('click', () => { d.freePack = dayKey(); d.coins += DAILY_COINS; Store.save(); Sfx.coin(); toast(`+${DAILY_COINS} coins`); Packs(); });
+  $$('[data-own]', el).forEach((b) => b.addEventListener('click', () => {
+    const o = Obj.data(), id = o.packs.splice(+b.dataset.own, 1)[0], p = PACKS.find((x) => x.id === id);
+    Store.save();
+    if (p) PackOpen(p);
+  }));
   $$('[data-pack]', el).forEach((b) => b.addEventListener('click', () => {
     const p = PACKS[+b.dataset.pack];
     if (d.coins < p.cost) return;
@@ -410,6 +416,7 @@ function PackOpen(pack) {
   Store.data.coins += dupeCoins;
   Store.data.stats.packs++;
   Store.save();
+  Obj.hit('pack');
   const el = go(`
     <div class="topbar"><h2 class="d">${esc(pack.name)} pack</h2></div>
     <div class="pack-stage" id="stage"><button class="pack-big" id="pk" style="background:${pack.grad}"><div class="pa-shine"></div><span>CLUTCH</span><b>${esc(pack.name)}</b><small>Tap to open</small></button></div>

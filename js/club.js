@@ -239,13 +239,14 @@ function rivalsResult(r, el) {
     c.w++; c.sw++;
     c.pts = Math.min(need, c.pts + 1);
     if (c.div > 1 && c.pts >= need) { c.div--; c.pts = 0; promo = c.div; c.safe = SAFE_GAMES[c.div] || 2; c.top = Math.min(c.top, c.div); c.sbest = Math.min(c.sbest, c.div); }
-    addXP(45 + (10 - c.div) * 5); Sfx.crowd(true);
+    addXP(45 + (10 - c.div) * 5); Sfx.crowd(true); Obj.hit('rivalsw');
   } else {
     c.l++; c.sl++;
     if (c.pts > 0) c.pts--;
     else if (!shielded && c.div < 10) { c.div++; drop = c.div; c.pts = Math.max(0, winsToPromote(c.div) - 2); }
     addXP(15); Sfx.groan();
   }
+  Obj.hit('rivals');
   if (c.div <= 5) unlock('club5');
   if (c.div <= 1) unlock('club1');
   const reward = promo ? (promo <= 1 ? 2 : promo <= 4 ? 1 : 0) : null;

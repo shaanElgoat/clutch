@@ -57,7 +57,7 @@ function DuelHub(d) {
         d.games.push({ win: r.win, us: r.us, them: r.them });
         const [w2, l2] = duelScore(d), over = w2 === 2 || l2 === 2;
         Runs.set('duel', { phase: 'hub', d });
-        addXP(25 + (r.win ? 25 : 0));
+        addXP(25 + (r.win ? 25 : 0)); Obj.hit('duelg');
         if (r.win) Sfx.crowd(true); else Sfx.groan();
         $('#after', el2).innerHTML = `<div class="outcome ${r.win ? 'win' : 'loss'}" style="margin-top:12px"><h2>${r.win ? 'You win game ' + n : esc(d.rival.name) + ' takes game ' + n}</h2><p>Series: ${w2}–${l2}${over ? '' : ' · ' + (w2 === 1 && l2 === 1 ? 'Game 3 decides it' : '')}</p></div>
           <div class="actions"><button class="btn primary" id="nx">${over ? 'See the result' : 'Next game'}</button></div>`;
@@ -73,6 +73,7 @@ function DuelEnd(d) {
     s.duelW = (s.duelW || 0) + 1; unlock('duel1');
     if (d.rival.id === 'shark') { s.duelShark = (s.duelShark || 0) + 1; unlock('duel_shark'); }
     if (l === 0) unlock('duel_sweep');
+    Obj.hit('duelw');
     addXP(d.rival.id === 'shark' ? 250 : d.rival.id === 'pro' ? 150 : 80);
   }
   Store.save();
@@ -172,7 +173,7 @@ function CapHub(c) {
     playLiveMatch({ title: R.label === 'Conference Championship' ? 'Conf. Championship' : R.label, badge: 'Salary Cap · ' + R.label, user: { name: myName(), xi: c.xi }, opp: next, seed: c.seed + ':r' + c.wins, po: true,
       onDone: (r, el2) => {
         const s = Store.data.stats;
-        if (r.win) { c.wins++; addXP(40 + (c.wins === 4 ? 300 : 0)); Sfx.crowd(true); } else { c.done = true; Sfx.groan(); }
+        if (r.win) { c.wins++; Obj.hit('capw'); addXP(40 + (c.wins === 4 ? 300 : 0)); Sfx.crowd(true); } else { c.done = true; Sfx.groan(); }
         s.capBest = Math.max(s.capBest || 0, c.wins);
         if (c.done || c.wins >= 4) s.capRuns = (s.capRuns || 0) + 1;
         Store.save();

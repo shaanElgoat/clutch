@@ -187,7 +187,7 @@ function showClutch(sc, meName, resolve, onContinue) {
         <button class="btn primary" id="cont" style="margin-top:12px">Continue</button>`;
       if (res.win) { Sfx.crowd(true); confetti(1600); buzz([40, 60, 40]); } else Sfx.groan();
       Store.data.stats.clutchT++; if (res.win) Store.data.stats.clutchW++; Store.save();
-      if (res.win) { unlock('clutch1'); if (Store.data.stats.clutchW >= 10) unlock('clutch10'); addXP(20); }
+      if (res.win) { Obj.hit('clutch'); unlock('clutch1'); if (Store.data.stats.clutchW >= 10) unlock('clutch10'); addXP(20); }
       $('#cont', el).addEventListener('click', onContinue);
     }, 1400);
   }));
@@ -204,6 +204,7 @@ function seasonProgress(r, flags) {
   if (r.perfect) s.perfect++;
   if (!s.best || r.score > s.best.score) s.best = { score: r.score, title: TE.verdict(r).title, rec: rec(r) };
   Store.save();
+  Obj.hit('season'); Obj.hit('sgw', r.w); if (r.stage >= 1) Obj.hit('playoffs'); if (r.champion) Obj.hit('ring');
   unlock('first_season');
   if (r.stage >= 1) unlock('playoffs');
   if (r.champion) unlock('ring');

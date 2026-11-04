@@ -188,6 +188,7 @@ function GamedayGame(xi, opp, diff, opts) {
     Runs.clear(runKind);
     const r = GD.result(g);
     Store.data.stats.gdPlayed++; if (r.win) Store.data.stats.gdWins++; Store.save();
+    Obj.hit('gameday'); if (r.win) Obj.hit('gdwin');
     addXP(60 + (r.win ? 100 : 0) + (r.win && diff === 'Legend' ? 100 : 0));
     if (r.win) { unlock('gd_win'); if (diff === 'Legend') unlock('gd_top'); }
     if (r.us >= 40) unlock('gd_40');
@@ -298,7 +299,7 @@ function WhosBetter(resumeStreak) {
       if (s.streak > best) { Store.data.stats.hlBest = s.streak; Store.save(); }
       if (s.streak >= 10) unlock('hl10');
       if (s.streak >= 25) unlock('hl25');
-      addXP(s.streak * 5);
+      addXP(s.streak * 5); Obj.hit('hl', s.streak);
       $('#hsub', el).textContent = i < 0 ? "Time's up!" : 'Wrong call!';
       $('#over', el).innerHTML = `<div class="outcome loss" style="margin-top:14px"><h2>${s.streak}</h2><p>${s.streak > best ? 'New best!' : 'Best: ' + Math.max(best, s.streak)}</p></div>
         <div class="actions"><button class="btn primary" id="re">Play again</button><div class="two"><button class="btn" id="sh">Share</button><button class="btn" data-act="home">Done</button></div></div>`;

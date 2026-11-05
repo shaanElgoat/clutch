@@ -93,7 +93,7 @@ function ClubScreen() {
       ${c.reward !== null && c.reward !== undefined ? `<button class="btn sun big" id="rwd">${ico('coin', 18)} Claim your ${PACKS[c.reward].cost.toLocaleString()} coin reward</button>` : ''}
       <button class="btn primary big" id="play" ${clubReady() ? '' : 'disabled'}>${ico('shield', 18)} ${!clubReady() ? `Fill all 12 spots (${filled}/12)` : c.match ? 'Rivals: finish your match' : 'Rivals'}</button>
       <div class="two"><button class="btn" id="auto">${ico('sparkle', 18)} Auto-build</button><button class="btn" id="gd" ${clubReady() ? '' : 'disabled'}>${ico('clipboard', 18)} Gameday</button></div>
-      ${filled < 12 ? `<button class="btn" data-act="packs">${ico('pack', 18)} Get more cards</button>` : ''}
+      <div class="two">${filled < 12 ? `<button class="btn" data-act="packs">${ico('pack', 18)} Get cards</button>` : `<button class="btn" data-act="binder">${ico('cards', 18)} Binder</button>`}<button class="btn" id="sell">${ico('coin', 18)} Sell cards</button></div>
     </div>
     <div class="section-title">This season</div>
     <div class="stat-grid"><div class="stat"><div class="si mint">${ico('check', 18)}</div><b>${c.sw}</b><small>Wins</small></div><div class="stat"><div class="si pink">${ico('x', 18)}</div><b>${c.sl}</b><small>Losses</small></div><div class="stat"><div class="si violet">${ico('crown', 18)}</div><b>Div ${c.top}</b><small>All-time best</small></div></div>
@@ -109,6 +109,7 @@ function ClubScreen() {
     if (slotEl) { slotEl.style.cursor = 'pointer'; slotEl.addEventListener('click', () => editClubSlot(i)); }
   });
   $('#auto', el).addEventListener('click', () => { autoBuildClub(); Sfx.good(); ClubScreen(); });
+  $('#sell', el).addEventListener('click', () => SellCards());
   const pb = $('#play', el); if (pb) pb.addEventListener('click', RivalsHub);
   $('#toRivals', el).addEventListener('click', () => (clubReady() ? RivalsHub() : toast('Fill all 12 spots first')));
   const rw = $('#rwd', el); if (rw) rw.addEventListener('click', openClubReward);
@@ -273,4 +274,50 @@ function openClubReward() {
   c.reward = null; Store.data.coins += amt; Store.save();
   Sfx.coin(); toast(`+${amt.toLocaleString()} coins`);
   App.clubSeg = 'packs'; goTab('club');
+}
+
+// ---- selling: turn cards you don't need into a few coins. Prices are low on purpose (a card sells for
+// a fraction of what a pack costs), and cards in your Club lineup are protected.
+function SellCards(filt, q) {
+  App.g = null;
+  filt = filt || 'all'; q = q || '';
+  const c = clubData(), inXI = new Set(c.xi.filter((x) => x !== null));
+  const FILTS = [['all', 'All'], ['u80', 'Under 80'], ['80', '80–89'], ['90', '90+']];
+  const ok = (p) => (filt === 'u80' ? p.r < 80 : filt === '80' ? p.r >= 80 && p.r < 90 : filt === '90' ? p.r >= 90 : true);
+  const all = ownedIds().map((id) => TE.PLAYERS[id]).sort((a, b) => a.r - b.r || a.name.localeCompare(b.name));
+  const list = all.filter((p) => ok(p) && (!q || p.name.toLowerCase().includes(q.toLowerCase())));
+  const bulk = all.filter((p) => p.r < 80 && !inXI.has(p.id));
+  const bulkCoins = bulk.reduce((a, p) => a + sellValue(p.id), 0);
+  const el = go(`
+    <div class="topbar"><button class="icon-btn" id="back">${ico('back', 20)}</button><h2 class="d grow">Sell cards</h2>${coinsChip()}</div>
+    <p class="mute" style="font-weight:600;font-size:13px;margin:-4px 0 12px">Cards in your Club lineup can't be sold. Selling a card removes it (and its stars) from your binder.</p>
+    ${bulk.length ? `<button class="free-pack" id="bulk"><div class="fp-ic">${ico('coin', 26)}</div><div class="grow"><b>Quick sell: everything under 80</b><small>${bulk.length} card${bulk.length > 1 ? 's' : ''} for ${bulkCoins.toLocaleString()} coins</small></div><span class="chip on">Sell</span></button>` : ''}
+    <input class="field" id="q" placeholder="Search your cards" value="${esc(q)}" style="width:100%;margin-bottom:10px">
+    <div class="chips" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">${FILTS.map(([id, l]) => `<button class="chip ${id === filt ? 'on' : ''}" data-f="${id}">${l}</button>`).join('')}</div>
+    <div class="sell-list">${list.length ? list.slice(0, 150).map((p) => {
+      const lock = inXI.has(p.id), lv = cardLevel(p.id);
+      return `<div class="sell-row"><span class="sr-ovr ${tierOf(p.r)}">${p.r}</span><div class="grow"><b>${esc(p.name)}${lv ? ` <span class="sr-st">${'★'.repeat(lv)}</span>` : ''}</b><small>${p.pos} · ${esc(TE.DATA.TEAMS[p.team].short)} · ${TE.eraTag(p.era)}</small></div>
+        ${lock ? `<span class="lmeta">${ico('lock', 12)} Lineup</span>` : `<button class="btn small" data-sell="${p.id}">${ico('coin', 14)} ${sellValue(p.id)}</button>`}</div>`;
+    }).join('') : '<p class="mute center" style="font-weight:700">No cards here.</p>'}</div>`);
+  $('#back', el).addEventListener('click', () => { App.clubSeg = 'club'; goTab('club'); });
+  $$('[data-f]', el).forEach((b) => b.addEventListener('click', () => SellCards(b.dataset.f, $('#q', el).value)));
+  let t = null;
+  $('#q', el).addEventListener('input', (e) => { clearTimeout(t); t = setTimeout(() => { SellCards(filt, e.target.value); const i = $('#q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 250); });
+  const sell = (ids) => {
+    const coins = ids.reduce((a, id) => a + sellValue(id), 0);
+    ids.forEach((id) => { delete Store.data.coll[id]; });
+    Store.data.coins += coins; Store.save();
+    Sfx.coin(); toast(`Sold for ${coins.toLocaleString()} coins`);
+    SellCards(filt, q);
+  };
+  $$('[data-sell]', el).forEach((b) => b.addEventListener('click', () => {
+    const id = +b.dataset.sell, p = TE.PLAYERS[id];
+    modal(`<div class="center">${pcard(id, { stars: cardLevel(id) })}</div><h2 class="d center" style="margin-top:12px">Sell ${esc(p.name)}?</h2>
+      <p class="center mute" style="font-weight:600">You get <b>${sellValue(id)} coins</b>. The card leaves your binder.</p>
+      <div class="actions two"><button class="btn" data-close>Keep</button><button class="btn hot" id="ok">Sell</button></div>`, (bg) => { $('#ok', bg).addEventListener('click', () => { bg.remove(); sell([id]); }); });
+  }));
+  const bb = $('#bulk', el);
+  if (bb) bb.addEventListener('click', () => modal(`<h2 class="d">Sell ${bulk.length} cards?</h2><p>Every card under 80 that isn't in your lineup goes, for <b>${bulkCoins.toLocaleString()} coins</b>.</p>
+    <div class="actions two"><button class="btn" data-close>Cancel</button><button class="btn hot" id="ok">Sell all</button></div>`, (bg) => { $('#ok', bg).addEventListener('click', () => { bg.remove(); sell(bulk.map((p) => p.id)); }); }));
+  return el;
 }

@@ -20,7 +20,7 @@ const myName = () => (Store.data.name || '').trim() || 'You';
 
 // five bottom tabs; every screen inside a tab returns to it via data-act="home"
 const TABS = [['play', 'ball', 'Season'], ['games', 'grid', 'Games'], ['club', 'shield', 'Club'], ['trophies', 'trophy', 'Trophies'], ['me', 'user', 'Me']];
-const triviaLeft = () => [!!(puzzle('grid') && puzzle('grid').done), !!(puzzle('who') && puzzle('who').done), !!puzzle('drill')].filter((x) => !x).length;
+const triviaLeft = () => [!!(puzzle('conn') && puzzle('conn').done), !!(puzzle('grid') && puzzle('grid').done), !!(puzzle('who') && puzzle('who').done), !!puzzle('drill')].filter((x) => !x).length;
 const dailyLeft = () => [!!Store.data.daily[todayKey()], !!(puzzle('grid') && puzzle('grid').done), !!(puzzle('who') && puzzle('who').done), !!puzzle('drill')].filter((x) => !x).length;
 function goTab(id) {
   App.tab = id;
@@ -84,8 +84,9 @@ function Home() {
 function GamesTab() {
   App.g = null;
   const s = Store.data.stats, streak = dailyStreak();
-  const g = puzzle('grid'), w = puzzle('who'), dr = puzzle('drill');
+  const g = puzzle('grid'), w = puzzle('who'), dr = puzzle('drill'), cn = puzzle('conn');
   const trivia = [
+    { act: 'conn', ic: 'sparkle', col: 'sun', t: 'Connections', blurb: 'Find the 4 hidden groups', done: !!(cn && cn.done), res: cn && cn.done ? (cn.win ? `Solved · ${4 - cn.left} mistake${4 - cn.left === 1 ? '' : 's'}` : `${cn.solved.length}/4 groups`) : '' },
     { act: 'grid', ic: 'grid', col: 'blue', t: 'The Grid', blurb: 'Fit a player to the row and column', done: !!(g && g.done), res: g ? g.cells.filter(Boolean).length + '/9 solved' : '' },
     { act: 'who', ic: 'question', col: 'pink', t: "Who's That?", blurb: 'Guess the mystery player', done: !!(w && w.done), res: w && w.done ? (w.win ? 'Solved in ' + w.guesses.length : 'Missed it') : '' },
     { act: 'drill', ic: 'timer', col: 'violet', t: '2-Minute Drill', blurb: 'Down late. Win it.', done: !!dr, res: dr ? dr.title : '' },
@@ -95,7 +96,7 @@ function GamesTab() {
   go(`
     <div class="topbar"><h2 class="d grow">Games</h2>${coinsChip()}</div>
 
-    <div class="group-title row-title"><span>Daily puzzles</span><span class="mute">${ico('flame', 12)} ${streak} day streak · ${n}/3</span></div>
+    <div class="group-title row-title"><span>Daily puzzles</span><span class="mute">${ico('flame', 12)} ${streak} day streak · ${n}/${trivia.length}</span></div>
     <div class="group">${trivia.map((x) => lrow({ attr: `data-act="${x.act}"`, col: x.col, ic: x.ic, t: x.t, sub: esc(x.res || x.blurb), meta: x.done ? ico('check', 14) : 'Play', hot: !x.done })).join('')}</div>
 
     <div class="group-title">Head to head</div>
@@ -256,7 +257,8 @@ function multiSeason(st, meta, online, shown) {
   const lite = { seed: st.seed, blind: st.blind, managers: st.managers.map((m) => ({ name: m.name, xi: m.xi })) };
   const persist = online ? null : (S) => Runs.set('party', { phase: 'season', st: lite, meta, shown: S.shown });
   if (persist) persist({ shown: shown || 0 });
-  playSeason({ users, seed: st.seed, interactive: users.map(() => false), meta, persist, shown: shown || 0, title: online ? 'Online season' : 'Party season', onFinish: (out) => { if (!online) Runs.clear('party'); MultiResults(out.results, users, meta, online, st, me); } });
+  const focus = online ? (me !== null && me >= 0 ? me : 0) : Math.max(0, meta.findIndex((m) => !m.cpu));
+  playSeason({ users, seed: st.seed, interactive: users.map(() => false), meta, persist, focus, shown: shown || 0, title: online ? 'Online season' : 'Party season', onFinish: (out) => { if (!online) Runs.clear('party'); MultiResults(out.results, users, meta, online, st, me); } });
 }
 function MultiResults(R, users, meta, online, st, me) {
   const order = R.map((r, i) => i).sort((a, b) => R[b].score - R[a].score);
@@ -365,6 +367,7 @@ function Profile() {
     <div class="topbar"><h2 class="d grow">Me</h2>${coinsChip()}</div>
     <div class="hero-card"><div class="row">${levelChip()}<div class="grow"></div><div class="mute" style="font-weight:700;font-size:12px">${xp - a} / ${b - a} XP</div></div>
       <div class="prog" style="margin-top:12px"><i style="width:${((xp - a) / (b - a)) * 100}%"></i></div></div>
+    ${accountBox()}
     <div class="section-title">GM name</div>
     <input class="field" id="nm" maxlength="14" placeholder="Your name" value="${esc(d.name)}">
     <div class="section-title">Field</div>
@@ -382,6 +385,7 @@ function Profile() {
   tabbar('me');
   const ta = $('#tipsAgain', el); if (ta) ta.addEventListener('click', () => { Store.data.tips = {}; Store.save(); toast('Tips will show again'); });
   const rb = $('#rbtn', el), ri = $('#rcode', el);
+  wireAccountBox(el);
   rb.addEventListener('click', () => { const r = redeemCode(ri.value); const m = $('#rmsg', el); m.textContent = r.msg; m.style.color = r.ok ? 'var(--mint)' : 'var(--red)'; if (r.ok) { ri.value = ''; Profile(); toast(r.msg); } });
   ri.addEventListener('keydown', (e) => { if (e.key === 'Enter') rb.click(); });
   $('#nm', el).addEventListener('input', (e) => { d.name = e.target.value.slice(0, 14); Store.save(); });
@@ -501,7 +505,7 @@ function redeemCode(raw) {
 
 // ================= BOOT =================
 const ACTIONS = {
-  home: () => goTab(App.tab || 'play'), tour: () => startTour(), dailytab: () => goTab('games'), duel: () => runOr('duel', DuelStart), cap: () => runOr('cap', CapStart), binder: Cards, goals: Objectives, help: Help, quit: () => quitDraft(), season: () => runOr('season', () => SeasonSetup('quick')), daily: () => (Runs.get('daily') ? resumeRun('daily') : openDaily()), gameday: () => runOr('gameday', GamedayStart),
+  home: () => goTab(App.tab || 'play'), tour: () => startTour(), dailytab: () => goTab('games'), duel: () => runOr('duel', DuelStart), cap: () => runOr('cap', CapStart), binder: Cards, goals: Objectives, conn: () => ConnectionsGame(), help: Help, quit: () => quitDraft(), season: () => runOr('season', () => SeasonSetup('quick')), daily: () => (Runs.get('daily') ? resumeRun('daily') : openDaily()), gameday: () => runOr('gameday', GamedayStart),
   hl: () => runOr('hl', WhosBetter), friends: FriendsMenu, party: () => runOr('party', PartySetup), online: () => OnlineScreen(),
   club: () => ClubScreen(), grid: () => GridGame(), who: () => MysteryGame(), drill: () => (Runs.get('drill') ? resumeRun('drill') : DrillStart()), kick: () => runOr('kick', KickIt), packs: Packs,
 };
@@ -513,6 +517,11 @@ function boot() {
   Store.load();
   applyTheme();
   document.body.insertAdjacentHTML('afterbegin', DEFS + '<div class="blobs"><i></i><i></i><i></i></div>' + funLayer());
+  // an account is required: no session on this device means the sign-in screen first
+  if (Account.enabled() && !Account.load()) { AuthScreen(() => { applyTheme(); start(); }); if (window.__ldReady) window.__ldReady(); return; }
+  start();
+}
+function start() {
   const h = location.hash, q = new URLSearchParams(location.search);
   if (h.startsWith('#c=')) {
     const ch = b64urlDecode(h.slice(3));

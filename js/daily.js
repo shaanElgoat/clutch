@@ -404,12 +404,18 @@ function Packs() {
 function PackOpen(pack) {
   const cards = rollPack(pack);
   const coll = Store.data.coll;
-  const fresh = cards.map((pid) => !coll[pid]);
-  // a duplicate levels the card up (max 3 stars); past that it turns into coins
+  // a player you already have merges in: +1 star (max 3) whichever of his cards it is. A brand-new card
+  // still goes in your binder. A copy of a maxed player you already own turns into coins.
   let dupeCoins = 0;
-  const tags = cards.map((pid, i) => {
-    if (fresh[i]) return '<span class="newtag">NEW</span>';
-    if ((coll[pid] || 1) < 4) { coll[pid] = (coll[pid] || 1) + 1; if (coll[pid] >= 4) unlock('star3'); return `<span class="lvltag">${'★'.repeat(coll[pid] - 1)} LEVEL UP</span>`; }
+  const tags = cards.map((pid) => {
+    const had = personPulls(pid), newCard = !coll[pid];
+    if (!had) { coll[pid] = 1; return '<span class="newtag">NEW</span>'; }
+    if (had < 4) {
+      coll[pid] = (coll[pid] || 0) + 1;
+      const lv = cardLevel(pid); if (lv >= 3) unlock('star3');
+      return `<span class="lvltag">${newCard ? 'NEW · ' : ''}${'★'.repeat(lv)} LEVEL UP</span>`;
+    }
+    if (newCard) { coll[pid] = 1; return '<span class="newtag">NEW</span>'; }
     dupeCoins += dupeValue(TE.PLAYERS[pid].r); return `<span class="dupetag">+${dupeValue(TE.PLAYERS[pid].r)}</span>`;
   });
   collect(cards);

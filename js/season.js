@@ -24,22 +24,23 @@ function seasonEvents(S) {
 }
 
 function SeasonScreen(ctx) {
-  const S = ctx.S, multi = ctx.users.length > 1;
-  const prof = TE.teamProfile(ctx.users[0].xi, { mods: ctx.users[0].mods });
+  // with friends, everyone watches their own team play live (always at 4x); the others' records update alongside
+  const S = ctx.S, multi = ctx.users.length > 1, f = ctx.focus || 0;
+  const prof = TE.teamProfile(ctx.users[f].xi, { mods: ctx.users[f].mods });
   const el = go(`
-    <div class="season-head"><div class="d">${esc(ctx.title || 'The Season')}</div><div class="mute" style="font-weight:800">${multi ? ctx.users.length + ' GMs · one conference' : 'OVR ' + prof.ovr.toFixed(0)}</div></div>
-    ${multi ? '<div class="mgr-cards" id="mc"></div>' : `
+    <div class="season-head"><div class="d">${esc(ctx.title || 'The Season')}</div><div class="mute" style="font-weight:800">${multi ? ctx.users.length + ' GMs · OVR ' + prof.ovr.toFixed(0) : 'OVR ' + prof.ovr.toFixed(0)}</div></div>
+    ${multi ? '<div class="mgr-cards mini" id="mc"></div>' : ''}${`
       <div class="scorebar"><div class="sb w"><div class="v" id="sW">0</div><div class="k">WINS</div></div><div class="sb l"><div class="v" id="sL">0</div><div class="k">LOSSES</div></div><div class="sb"><div class="v" id="sP">–</div><div class="k">SEED</div></div><div class="sb c"><div class="v" id="sC">0/0</div><div class="k">CLUTCH</div></div></div>
       <div class="form" id="form">${'<i></i>'.repeat(17)}</div>
       <div class="path" id="path"><div>Wild Card</div><div>Divisional</div><div>Conf.</div><div>Super Bowl</div></div>
       <div class="live" id="live"></div>`}
     <div class="ticker" id="tick"></div>
-    <div class="live-ctl">${multi ? '' : `<button class="btn" id="spd">${ico('bolt', 16)} <span>1x</span></button>`}<button class="btn skip" id="skip">Skip to the end ▸▸</button></div>`);
+    <div class="live-ctl">${multi ? `<span class="pill">${ico('bolt', 14)} 4x</span>` : `<button class="btn" id="spd">${ico('bolt', 16)} <span>1x</span></button>`}<button class="btn skip" id="skip">Skip to the end ▸▸</button></div>`);
   const tick = $('#tick', el);
   if (!multi) tipOnce('season');
   const live = ctx.users.map(() => ({ w: 0, l: 0, pos: null, cw: 0, ct: 0, stage: '' }));
   const addRow = (html, cls) => { const d = document.createElement('div'); d.className = 'mrow ' + (cls || ''); d.innerHTML = html; tick.insertBefore(d, tick.firstChild); };
-  const shows = (i, e) => { const h2h = e.oppKey && e.oppKey[0] === 'U'; return !multi || e.comp === 'P' || e.clutch || (h2h && i < +e.oppKey.slice(1)); };
+  const shows = (i, e) => { const h2h = e.oppKey && e.oppKey[0] === 'U'; return !multi || i === f || e.comp === 'P' || e.clutch || (h2h && i < +e.oppKey.slice(1)); };
   const matchRow = (i, e) => {
     const who = multi ? `<span style="color:${ctx.meta[i].color}">${esc(ctx.users[i].name)}</span> ${e.home ? 'vs' : '@'} ` : (e.neutral || e.home ? 'vs ' : '@ ');
     const badge = e.comp === 'P' ? PO_SHORT[e.label] : e.prime ? 'PRIME' : 'W' + e.week;
@@ -48,10 +49,9 @@ function SeasonScreen(ctx) {
   };
   const renderLive = () => {
     if (multi) {
-      $('#mc', el).innerHTML = ctx.users.map((u, i) => { const L = live[i]; return `<div class="mgr-card"><span class="dot" style="background:${ctx.meta[i].color}"></span><span class="nm">${esc(u.name)}</span><span class="st">${L.stage || (L.pos ? ordinal(L.pos) : '')}</span><span class="rec">${L.w}-${L.l}</span></div>`; }).join('');
-      return;
+      $('#mc', el).innerHTML = ctx.users.map((u, i) => { const L = live[i]; return `<div class="mgr-card ${i === f ? 'me' : ''}"><span class="dot" style="background:${ctx.meta[i].color}"></span><span class="nm">${esc(u.name)}</span><span class="st">${L.stage || (L.pos ? ordinal(L.pos) : '')}</span><span class="rec">${L.w}-${L.l}</span></div>`; }).join('');
     }
-    const L = live[0];
+    const L = live[f];
     $('#sW', el).textContent = L.w; $('#sL', el).textContent = L.l;
     $('#sP', el).textContent = L.pos ? (L.pos <= 7 ? '#' + L.pos : ordinal(L.pos)) : '–';
     $('#sC', el).textContent = L.cw + '/' + L.ct;
@@ -63,17 +63,17 @@ function SeasonScreen(ctx) {
     if (e.comp === 'R') {
       const pb = (S.out.pending ? S.out.partial.posByWeek : S.out.results.map((r) => r.posByWeek))[i];
       L.pos = pb[e.week - 1] || L.pos;
-      if (!multi) { const f = $('#form', el).children[e.week - 1]; if (f) f.className = e.res; }
+      if (i === f) { const fm = $('#form', el).children[e.week - 1]; if (fm) fm.className = e.res; }
     } else {
       L.stage = e.res === 'W' ? (e.label === 'Super Bowl' ? 'CHAMPS' : 'Won ' + PO_SHORT[e.label]) : 'Out ' + PO_SHORT[e.label];
-      if (!multi) {
+      if (i === f) {
         const idx = ['Wild Card', 'Divisional', 'Conference Championship', 'Super Bowl'].indexOf(e.label);
         const box = $('#path', el).children[idx]; if (box) box.className = e.res;
         if (idx === 1) { const wc = $('#path', el).children[0]; if (!wc.className) { wc.className = 'bye'; wc.textContent = 'Bye'; } }
       }
     }
     if (!quiet && shows(i, e)) matchRow(i, e);
-    if (!quiet && !multi) { if (e.res === 'W') Sfx.win(); else Sfx.loss(); }
+    if (!quiet && i === f) { if (e.res === 'W') Sfx.win(); else Sfx.loss(); }
     if (!quiet && e.label === 'Super Bowl' && e.res === 'W') { addRow(`<span style="width:34px">${TROPHY_SVG.replace('<svg', '<svg width="30" height="30"')}</span><span class="mt"><b>${multi ? esc(ctx.users[i].name) + ' win' : 'You win'} the Super Bowl!</b></span>`, 'trophy'); Sfx.trophy(); buzz([30, 40, 80]); }
   };
   const events = seasonEvents(S);
@@ -108,6 +108,16 @@ function SeasonScreen(ctx) {
       }
       finished = true; toClutch(); return;
     }
+    if (multi && !skipping) {
+      // this week: everyone else's result lands, then your game plays live
+      const wk = events[S.shown].e.week;
+      while (S.shown < events.length && events[S.shown].e.week === wk && events[S.shown].i !== f) apply(events[S.shown++]);
+      renderLive();
+      const x = events[S.shown];
+      if (!x || x.e.week !== wk) { later(step, 250); return; }
+      liveGame(x.e, () => { S.shown++; apply(x); renderLive(); later(step, x.e.comp === 'P' ? 900 : 200); });
+      return;
+    }
     if (!multi && !skipping) {
       const x = events[S.shown];
       if (S.skipLive) { S.skipLive = false; S.shown++; apply(x); renderLive(); later(step, 700); return; }
@@ -121,12 +131,12 @@ function SeasonScreen(ctx) {
     later(step, big ? 1100 : 230);
   };
   // ---- live game card: the clock runs, scores tick up, plays scroll in ----
-  S.speed = S.speed || 1;
+  S.speed = multi ? 4 : S.speed || 1;
   const sp = $('#spd', el);
   const drawSpd = () => { if (sp) $('span', sp).textContent = S.speed + 'x'; };
   drawSpd();
   if (sp) sp.onclick = () => { S.speed = S.speed === 1 ? 2 : S.speed === 2 ? 4 : 1; drawSpd(); Sfx.tap(); };
-  const meXI = ctx.users[0].xi;
+  const meXI = ctx.users[f].xi;
   const liveGame = (e, done) => {
     const oppSq = e.oppKey && e.oppKey[0] === 'S' ? parseInt(e.oppKey.slice(1), 10) : null;
     const badge = e.stopAt ? e.label : e.comp === 'P' ? (e.label === 'Conference Championship' ? 'Conf. Championship' : e.label) : e.prime ? 'Week ' + e.week + ' · Primetime' : 'Week ' + e.week;

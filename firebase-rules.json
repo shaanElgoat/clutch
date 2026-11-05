@@ -6,7 +6,9 @@
         "$id": {
           ".write": "!data.exists() && $id.matches(/^[a-z0-9]{6,16}$/)",
           ".validate": "newData.hasChildren(['s', 'w', 'l', 'st', 'o', 't']) && newData.child('s').isNumber() && newData.child('s').val() >= 0 && newData.child('s').val() <= 6000 && newData.child('w').isNumber() && newData.child('w').val() >= 0 && newData.child('w').val() <= 17 && newData.child('l').isNumber() && newData.child('l').val() >= 0 && newData.child('l').val() <= 17 && newData.child('st').isNumber() && newData.child('st').val() >= 0 && newData.child('st').val() <= 5 && newData.child('o').isNumber() && newData.child('t').val() === now",
-          "$other": { ".validate": "$other === 's' || $other === 'w' || $other === 'l' || $other === 'st' || $other === 'o' || $other === 't'" }
+          "$other": {
+            ".validate": "$other === 's' || $other === 'w' || $other === 'l' || $other === 'st' || $other === 'o' || $other === 't'"
+          }
         }
       }
     },
@@ -16,25 +18,57 @@
         ".write": "$code.matches(/^[A-Z0-9]{5}$/)",
         "meta": {
           ".validate": "newData.hasChildren(['host', 'status']) && (newData.child('status').val() === 'lobby' || newData.child('status').val() === 'draft')",
-          "host": { ".validate": "newData.isString() && newData.val().length <= 16" },
-          "status": { ".validate": "newData.isString()" },
-          "blind": { ".validate": "newData.isBoolean()" },
-          "created": { ".validate": "newData.isNumber()" },
-          "$other": { ".validate": false }
+          "host": {
+            ".validate": "newData.isString() && newData.val().length <= 16"
+          },
+          "status": {
+            ".validate": "newData.isString()"
+          },
+          "blind": {
+            ".validate": "newData.isBoolean()"
+          },
+          "created": {
+            ".validate": "newData.isNumber()"
+          },
+          "$other": {
+            ".validate": false
+          }
         },
         "members": {
           "$id": {
             ".validate": "$id.matches(/^[a-z0-9]{6,16}$/) && newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length <= 14",
-            "name": { ".validate": "newData.isString()" },
-            "j": { ".validate": "newData.isNumber()" },
-            "seen": { ".validate": "newData.isNumber()" },
-            "$other": { ".validate": false }
+            "name": {
+              ".validate": "newData.isString()"
+            },
+            "j": {
+              ".validate": "newData.isNumber()"
+            },
+            "seen": {
+              ".validate": "newData.isNumber()"
+            },
+            "$other": {
+              ".validate": false
+            }
           }
         },
         "game": {
           ".validate": "newData.hasChildren(['ver', 'ids', 'st']) && newData.child('ver').isNumber() && newData.child('st').isString() && newData.child('st').val().length < 200000 && (!data.exists() || newData.child('ver').val() === data.child('ver').val() + 1)"
         },
-        "$other": { ".validate": false }
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "save": {
+          ".validate": "newData.isString() && newData.val().length < 2000000"
+        },
+        "$other": {
+          ".validate": false
+        }
       }
     }
   }

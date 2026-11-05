@@ -90,6 +90,7 @@ const ACH = [
   { id: 'hl10', icon: 'scale', t: 'Stat Head', d: "Who's Better? streak of 10" },
   { id: 'hl25', icon: 'eye', t: 'Walking Almanac', d: "Who's Better? streak of 25" },
   { id: 'daily3', icon: 'calendar', t: 'Habit', d: 'Play the Daily 3 days in a row' },
+  { id: 'conn_perfect', icon: 'sparkle', t: 'Connected', d: 'Solve Connections with no mistakes' },
   { id: 'grid9', icon: 'grid', t: 'Immaculate', d: 'Fill all 9 squares of The Grid' },
   { id: 'mystery', icon: 'question', t: 'Detective', d: "Solve Who's That? in 4 guesses or fewer" },
   { id: 'drill', icon: 'timer', t: 'Two-Minute Warning', d: 'Win a 2-Minute Drill' },
@@ -117,8 +118,18 @@ function unlock(id) {
   Sfx.achievement();
   addXP(100, a.t);
 }
-// card levels: every duplicate pull adds a star (max 3). Each star is +1 rating in My Club.
-const cardLevel = (pid) => Math.max(0, Math.min(3, (Store.data.coll[pid] || 1) - 1));
+// card levels: every extra pull of the same PLAYER adds a star (max 3), whichever of his cards it was
+// (a 2020 Mahomes and a 2026 Mahomes merge). Each star is +1 rating in My Club, on all his cards.
+let PERSON = null;
+const personKey = (pid) => { const p = TE.PLAYERS[pid]; return p.name + '|' + p.pos; };
+function personCards(pid) {
+  if (!PERSON) { PERSON = {}; TE.PLAYERS.forEach((p) => { (PERSON[personKey(p.id)] = PERSON[personKey(p.id)] || []).push(p.id); }); }
+  return PERSON[personKey(pid)] || [pid];
+}
+// how many times you've pulled this player, across all his cards you still own
+const personPulls = (pid) => personCards(pid).reduce((a, id) => a + (Store.data.coll[id] || 0), 0);
+const cardLevel = (pid) => Math.max(0, Math.min(3, personPulls(pid) - 1));
+const sellValue = (pid) => { const r = TE.PLAYERS[pid].r; return Math.round((r >= 95 ? 220 : r >= 90 ? 80 : r >= 85 ? 30 : 10) * (1 + 0.25 * Math.max(0, (Store.data.coll[pid] || 1) - 1))); };
 function levelMods(xi) { const m = {}; xi.forEach((pid) => { if (pid !== null && pid !== undefined && cardLevel(pid)) m[pid] = cardLevel(pid); }); return m; }
 // add drafted players to the binder and check team-building achievements
 function collect(xi) {

@@ -481,7 +481,7 @@ document.addEventListener('click', (e) => {
 // ================= REDEEM CODES =================
 // Coin codes for friends. Codes are stored as hashes (never as plain text), each redeemable once per player.
 // To add one: put String(TE.hash('clutch-code:' + CODE)) -> coins in REDEEM_CODES.
-// hashed code -> coins (six codes, 500 to 20,000; the plain words are only in the chat with the owner)
+// hashed code -> coins or { pack: id } (the plain words are only in the chat with the owner)
 const REDEEM_CODES = {
   '3129494278': 500,
   '3729722230': 1000,
@@ -489,6 +489,18 @@ const REDEEM_CODES = {
   '3017167308': 5000,
   '1781168503': 10000,
   '2603178698': 20000,
+  // second batch (2026-11-05): coins, or { pack } which goes straight into Your packs
+  '487079359': { pack: 'std' },
+  '1820692496': 750,
+  '1083285924': 1500,
+  '3316156341': 3000,
+  '3360451774': { pack: 'pro' },
+  '3626816619': 4000,
+  '3738762815': 7500,
+  '4168198981': { pack: 'leg' },
+  '4243197595': 15000,
+  '4150862312': 25000,
+  '2803328084': { pack: 'icon' },
 };
 function redeemCode(raw) {
   const code = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -496,11 +508,14 @@ function redeemCode(raw) {
   const d = Store.data, key = String(TE.hash('clutch-code:' + code));
   d.redeemed = d.redeemed || [];
   if (d.redeemed.includes(key)) return { ok: false, msg: "You've already used that code." };
-  const coins = REDEEM_CODES[key];
-  if (!coins) return { ok: false, msg: "That code isn't valid." };
-  d.redeemed.push(key); d.coins += coins; Store.save();
+  const prize = REDEEM_CODES[key];
+  if (!prize) return { ok: false, msg: "That code isn't valid." };
+  d.redeemed.push(key);
+  const pk = prize.pack ? PACKS.find((p) => p.id === prize.pack) : null;
+  if (pk) Obj.data().packs.push(pk.id); else d.coins += prize;
+  Store.save();
   Sfx.coin(); Sfx.achievement(); confetti(1400);
-  return { ok: true, msg: `Code redeemed: +${coins.toLocaleString()} coins!` };
+  return { ok: true, msg: pk ? `Code redeemed: a free ${pk.name} pack! Open it in Packs.` : `Code redeemed: +${prize.toLocaleString()} coins!` };
 }
 
 // ================= BOOT =================

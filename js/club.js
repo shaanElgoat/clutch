@@ -248,6 +248,7 @@ function rivalsResult(r, el) {
     addXP(15); Sfx.groan();
   }
   Obj.hit('rivals');
+  if (promo) Track.ev('promo', 'Div ' + promo);
   if (c.div <= 5) unlock('club5');
   if (c.div <= 1) unlock('club1');
   const reward = promo ? (promo <= 1 ? 2 : promo <= 4 ? 1 : 0) : null;

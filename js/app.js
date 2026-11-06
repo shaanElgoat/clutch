@@ -24,6 +24,7 @@ const triviaLeft = () => [!!(puzzle('conn') && puzzle('conn').done), !!(puzzle('
 const dailyLeft = () => [!!Store.data.daily[todayKey()], !!(puzzle('grid') && puzzle('grid').done), !!(puzzle('who') && puzzle('who').done), !!puzzle('drill')].filter((x) => !x).length;
 function goTab(id) {
   App.tab = id;
+  Track.tap('tab_' + id);
   ({ play: Home, games: GamesTab, daily: GamesTab, club: () => (App.clubSeg === 'packs' ? Packs : App.clubSeg === 'binder' ? Cards : App.clubSeg === 'goals' ? Objectives : ClubScreen)(), trophies: Trophies, me: Profile })[id]();
 }
 function tabbar(active) {
@@ -375,7 +376,8 @@ function Profile() {
     <div class="section-title">Redeem a code</div>
     <div class="code-box"><input class="field grow" id="rcode" maxlength="20" placeholder="Enter code" autocomplete="off" autocapitalize="characters" spellcheck="false"><button class="btn primary small" id="rbtn">${ico('gift', 16)} Redeem</button></div>
     <p class="mute" id="rmsg" style="font-weight:600;font-size:12.5px;margin:6px 4px 0;min-height:18px"></p>
-    <div class="section-title">Settings</div>
+    ${DASH.secret() ? `<button class="btn" id="dash" style="width:100%;margin-top:14px">${ico('trophy', 18)} Analytics (owner)</button>` : ''}
+    <div class="section-title" id="setT">Settings</div>
     <div class="settings">
       <button class="toggle ${d.sound ? 'on' : ''}" data-tg="sound"><span class="ic">${ico('sound', 20)}</span><div class="grow"><h4>Sound</h4></div><div class="sw"></div></button>
       <button class="toggle ${d.haptics ? 'on' : ''}" data-tg="haptics"><span class="ic">${ico('phone', 20)}</span><div class="grow"><h4>Vibration</h4></div><div class="sw"></div></button>
@@ -386,6 +388,10 @@ function Profile() {
   const ta = $('#tipsAgain', el); if (ta) ta.addEventListener('click', () => { Store.data.tips = {}; Store.save(); toast('Tips will show again'); });
   const rb = $('#rbtn', el), ri = $('#rcode', el);
   wireAccountBox(el);
+  // the owner's way in: tap "Settings" 5 times
+  let taps = 0;
+  $('#setT', el).addEventListener('click', () => { if (++taps >= 5) StatsDash(); });
+  const db = $('#dash', el); if (db) db.addEventListener('click', () => StatsDash());
   rb.addEventListener('click', () => { const r = redeemCode(ri.value); const m = $('#rmsg', el); m.textContent = r.msg; m.style.color = r.ok ? 'var(--mint)' : 'var(--red)'; if (r.ok) { ri.value = ''; Profile(); toast(r.msg); } });
   ri.addEventListener('keydown', (e) => { if (e.key === 'Enter') rb.click(); });
   $('#nm', el).addEventListener('input', (e) => { d.name = e.target.value.slice(0, 14); Store.save(); });
@@ -511,6 +517,7 @@ function redeemCode(raw) {
   const prize = REDEEM_CODES[key];
   if (!prize) return { ok: false, msg: "That code isn't valid." };
   d.redeemed.push(key);
+  Track.ev('code', code);
   const pk = prize.pack ? PACKS.find((p) => p.id === prize.pack) : null;
   if (pk) Obj.data().packs.push(pk.id); else d.coins += prize;
   Store.save();
@@ -526,7 +533,7 @@ const ACTIONS = {
 };
 document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-act]');
-  if (b && ACTIONS[b.dataset.act]) { Sfx.ensure(); Sfx.tap(); ACTIONS[b.dataset.act](b); }
+  if (b && ACTIONS[b.dataset.act]) { Sfx.ensure(); Sfx.tap(); Track.tap(b.dataset.act); ACTIONS[b.dataset.act](b); }
 });
 function boot() {
   Store.load();
@@ -537,6 +544,8 @@ function boot() {
   start();
 }
 function start() {
+  Track.start();
+  if (location.hash === '#stats') { history.replaceState(null, '', location.pathname); StatsDash(); if (window.__ldReady) window.__ldReady(); return; }
   const h = location.hash, q = new URLSearchParams(location.search);
   if (h.startsWith('#c=')) {
     const ch = b64urlDecode(h.slice(3));

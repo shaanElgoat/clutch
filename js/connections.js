@@ -120,6 +120,7 @@ function ConnectionsGame(practiceSeed) {
   const finish = () => {
     sel = [];
     addXP(st.win ? 40 + st.left * 20 : 15);
+    if (daily) Track.ev('conn', st.win ? `solved, ${4 - st.left} mistakes` : `${st.solved.length}/4 groups`);
     Obj.hit('puzzle');
     if (st.win) { confetti(); Sfx.trophy(); if (st.left === 4) unlock('conn_perfect'); } else Sfx.groan();
   };

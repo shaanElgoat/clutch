@@ -78,6 +78,7 @@ const Obj = {
   // a game reports something happened (amount = how many, or the best value for "max" objectives)
   hit(ev, amt) {
     if (amt === undefined) amt = 1;
+    Track.ev(ev, amt === 1 ? '' : amt);
     const o = Obj.data();
     ['d', 'w'].forEach((k) => {
       const pool = k === 'd' ? OBJ_DAILY : OBJ_WEEKLY, b = o[k];
@@ -105,6 +106,7 @@ const Obj = {
     if (kind === 'f') o.f[id] = Date.now(); else o[kind].c[id] = 1;
     o.packs.push(x.pack);
     Store.save();
+    Track.ev('claim', x.t);
     return packById(x.pack);
   },
 };

@@ -70,6 +70,36 @@
           ".validate": false
         }
       }
+    },
+    "analytics": {
+      ".read": false,
+      "u": {
+        "$id": {
+          ".write": "$id.matches(/^[a-z0-9]{6,16}$/)"
+        }
+      },
+      "d": {
+        "$day": {
+          "$id": {
+            ".write": "$day.matches(/^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/) && $id.matches(/^[a-z0-9]{6,16}$/)"
+          }
+        }
+      },
+      "f": {
+        "$day": {
+          "$k": {
+            ".write": "$day.matches(/^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/) && !data.exists() && $k.matches(/^[a-z0-9]{6,30}$/)",
+            ".validate": "newData.hasChildren(['u', 'e', 't'])"
+          }
+        }
+      },
+      "err": {
+        "$day": {
+          "$k": {
+            ".write": "$day.matches(/^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/)"
+          }
+        }
+      }
     }
   }
 }

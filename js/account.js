@@ -60,6 +60,7 @@ const Account = {
     const j = await Account.call('signUp', { email, password: pass, returnSecureToken: true });
     Account.set(j);
     if (name) { Store.data.name = name.slice(0, 14); Store.save(); }
+    Track.ev('signup');
     await Account.push();
   },
   async signIn(email, pass) {

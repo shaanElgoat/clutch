@@ -214,7 +214,7 @@ function seasonProgress(r, flags) {
   if (r.perfect) s.perfect++;
   if (!s.best || r.score > s.best.score) s.best = { score: r.score, title: TE.verdict(r).title, rec: rec(r) };
   Store.save();
-  Obj.hit('season'); Obj.hit('sgw', r.w); if (r.stage >= 1) Obj.hit('playoffs'); if (r.champion) Obj.hit('ring');
+  Track.ev('season_end', rec(r) + ' · ' + stageShort(r)); Obj.hit('season'); Obj.hit('sgw', r.w); if (r.stage >= 1) Obj.hit('playoffs'); if (r.champion) Obj.hit('ring');
   unlock('first_season');
   if (r.stage >= 1) unlock('playoffs');
   if (r.champion) unlock('ring');

@@ -423,6 +423,7 @@ function PackOpen(pack) {
   Store.data.stats.packs++;
   Store.save();
   Obj.hit('pack');
+  Track.ev('open_' + pack.id, 'best ' + Math.max(...cards.map((pid) => TE.PLAYERS[pid].r)));
   const el = go(`
     <div class="topbar"><h2 class="d">${esc(pack.name)} pack</h2></div>
     <div class="pack-stage" id="stage"><button class="pack-big" id="pk" style="background:${pack.grad}"><div class="pa-shine"></div><span>CLUTCH</span><b>${esc(pack.name)}</b><small>Tap to open</small></button></div>

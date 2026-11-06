@@ -82,6 +82,7 @@ function startTour() {
   ];
   coach(steps, (completed) => {
     const d = Store.data, first = !d.toured;
+    Track.ev(completed ? 'tour_done' : 'tour_skip');
     d.toured = true;
     if (completed && !d.tourPaid) { d.tourPaid = true; d.coins += TOUR_COINS; toast(`+${TOUR_COINS} coins`); Sfx.achievement(); }
     Store.save();

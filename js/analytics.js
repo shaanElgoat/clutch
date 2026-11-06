@@ -120,6 +120,8 @@ async function StatsDash(range) {
   }
   if (!el.isConnected) return;
   U = U || {}; D = D || {}; F = F || {}; E = E || {};
+  // the dashboard's own setup check leaves an empty entry: it isn't a real visit
+  Object.values(D).forEach((day) => Object.keys(day || {}).forEach((id) => { const x = day[id]; if (!x || (!x.s && !x.t && !x.a && !x.e)) delete day[id]; }));
   const days = []; for (let i = 29; i >= 0; i--) days.push(dayAdd(today, -i));
   const win = days.slice(-range);
   const users = Object.entries(U).map(([id, u]) => ({ id, ...u }));

@@ -99,7 +99,9 @@
     const bonus = hc === null ? 0 : (hc - 82) * 0.22; // the head coach lifts (or drags) both units
     const off = offW ? (offS / offW) * 0.85 + minO * 0.15 + bonus : 60;
     const def = defW ? (defS / defW) * 0.85 + minD * 0.15 + bonus : 60;
-    const ovr = (off + def) / 2 * 0.85 + (k === null ? 75 : k) * 0.05 + (hc === null ? 75 : hc) * 0.1;
+    // team OVR is simply the average of the ratings on the cards as placed (out-of-position penalties and
+    // card stars included), so what you see on the field is what you get. off/def drive the games.
+    const ovr = sum / n;
     return { ovr, off, def, eff, hc: hc === null ? 70 : hc, k: k === null ? 70 : k };
   }
 

@@ -5,8 +5,10 @@ const src = require('fs').readFileSync(__dirname + '/../js/club.js', 'utf8');
 const DIVS = eval('(' + /const RIVALS_DIV = (\{[\s\S]*?\});/.exec(src)[1] + ')');
 const sorted = TE.CUR_SQ.slice().sort((a, b) => TE.squadStrength(a) - TE.squadStrength(b));
 function club(seed, noise) { const d = TE.createDraft({ seed, managers: [{ name: 'u' }] }); while (!d.done) { const b = TE.botPick(d, 0, noise); TE.pick(d, 0, b.pid, b.slot); } return d.managers[0].xi; }
-for (const [label, noise] of [['strong club', 2], ['ok club', 14], ['weak club', 30]]) {
-  const xis = Array.from({ length: 40 }, (_, i) => club(label + i, noise));
+// an elite pack-built club: for every slot, one of the 12 best cards at that position from any era
+function elite(seed) { const r = TE.rng(seed), used = new Set(); return TE.LINEUP.map((s) => { const c = TE.PLAYERS.filter((p) => p.pos === s.pos && !used.has(p.name)).sort((a, b) => b.r - a.r).slice(0, 12); const p = c[Math.floor(r() * c.length)]; used.add(p.name); return p.id; }); }
+for (const [label, noise] of [['elite club', -1], ['strong club', 2], ['ok club', 14], ['weak club', 30]]) {
+  const xis = Array.from({ length: 40 }, (_, i) => (noise < 0 ? elite(label + i) : club(label + i, noise)));
   const ovr = xis.reduce((a, x) => a + TE.teamProfile(x).ovr, 0) / xis.length;
   const row = [];
   for (let div = 10; div >= 1; div--) {

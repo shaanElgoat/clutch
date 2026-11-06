@@ -75,47 +75,105 @@ function ConnectionsGame(practiceSeed) {
     <div id="left" class="conn-left"></div>
     <div id="ctl"></div>
     <div id="after"></div>`);
-  const bar = (gi) => { const g = C.groups[gi]; return `<div class="conn-group" style="background:${CONN_COLORS[gi]}"><b>${esc(g.label)}</b><span>${g.names.map(esc).join(', ')}</span></div>`; };
-  const draw = () => {
-    $('#left', el).innerHTML = st.done ? '' : `Mistakes left ${'<i class="conn-dot"></i>'.repeat(st.left)}${'<i class="conn-dot off"></i>'.repeat(4 - st.left)}`;
-    // solved groups (in the order you got them), then everything you missed once the game's over
-    const shown = st.done ? st.solved.concat([0, 1, 2, 3].filter((g) => !st.solved.includes(g))) : st.solved;
-    $('#solved', el).innerHTML = shown.map(bar).join('');
-    const rest = st.order.filter((n) => !shown.includes(groupOf(n)));
-    $('#board', el).innerHTML = rest.map((n) => `<button class="conn-tile ${sel.includes(n) ? 'on' : ''}" data-n="${esc(n)}"><span>${esc(n)}</span></button>`).join('');
-    $$('[data-n]', el).forEach((b) => b.addEventListener('click', () => {
-      if (st.done) return;
-      const n = b.dataset.n;
-      if (sel.includes(n)) sel = sel.filter((x) => x !== n); else if (sel.length < 4) sel.push(n); else return;
-      Sfx.tap(); draw();
-    }));
-    $('#ctl', el).innerHTML = st.done ? '' : `<div class="conn-ctl"><button class="btn small" id="shuf">${ico('refresh', 16)} Shuffle</button><button class="btn small" id="clr" ${sel.length ? '' : 'disabled'}>Deselect</button><button class="btn primary small" id="sub" ${sel.length === 4 ? '' : 'disabled'}>Submit</button></div>`;
-    if (!st.done) {
-      $('#shuf', el).addEventListener('click', () => { st.order = st.order.slice().sort(() => Math.random() - 0.5); save(); Sfx.tap(); draw(); });
-      $('#clr', el).addEventListener('click', () => { sel = []; draw(); });
-      $('#sub', el).addEventListener('click', submit);
-    }
-    if (st.done) after();
+  // tiles are built once and moved around (never re-drawn), so selecting, shuffling and solving animate smoothly
+  const board = $('#board', el), solvedEl = $('#solved', el), leftEl = $('#left', el), ctlEl = $('#ctl', el);
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  let busy = false;
+  const tiles = new Map();
+  st.order.forEach((n) => {
+    const b = document.createElement('button');
+    b.className = 'conn-tile' + (n.length > 15 ? ' long' : '');
+    b.innerHTML = `<span>${esc(n)}</span>`;
+    b.addEventListener('click', () => tap(n, b));
+    tiles.set(n, b);
+  });
+  const shownGroups = () => (st.done ? st.solved.concat([0, 1, 2, 3].filter((g) => !st.solved.includes(g))) : st.solved);
+  const addBar = (gi, anim) => {
+    const g = C.groups[gi], d = document.createElement('div');
+    d.className = 'conn-group' + (anim ? ' in' : '');
+    d.style.background = CONN_COLORS[gi];
+    d.innerHTML = `<b>${esc(g.label)}</b><span>${g.names.map(esc).join(', ')}</span>`;
+    solvedEl.appendChild(d);
   };
-  const submit = () => {
-    if (sel.length !== 4 || st.done) return;
+  // put the remaining tiles in order; with anim, every tile glides from where it was (FLIP)
+  const layout = (anim) => {
+    const gone = shownGroups(), rest = st.order.filter((n) => !gone.includes(groupOf(n)));
+    const first = new Map();
+    if (anim) rest.forEach((n) => { const t = tiles.get(n); if (t.isConnected) first.set(n, t.getBoundingClientRect()); });
+    tiles.forEach((t, n) => { if (!rest.includes(n) && t.isConnected) t.remove(); });
+    rest.forEach((n) => board.appendChild(tiles.get(n)));
+    tiles.forEach((t, n) => t.classList.toggle('on', sel.includes(n)));
+    if (anim) rest.forEach((n) => {
+      const t = tiles.get(n), f = first.get(n); if (!f) return;
+      const l = t.getBoundingClientRect(), dx = f.left - l.left, dy = f.top - l.top;
+      if (dx || dy) t.animate([{ transform: `translate(${dx}px,${dy}px)` }, { transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    });
+  };
+  const dots = (lost) => {
+    leftEl.innerHTML = st.done ? '' : `Mistakes left ${Array.from({ length: 4 }, (_, i) => `<i class="conn-dot ${i < st.left ? '' : 'off'} ${lost && i === st.left ? 'lost' : ''}"></i>`).join('')}`;
+  };
+  const ctl = () => {
+    if (st.done) { ctlEl.innerHTML = ''; return; }
+    if (!ctlEl.firstChild) {
+      ctlEl.innerHTML = `<div class="conn-ctl"><button class="btn small" id="shuf">${ico('refresh', 16)} Shuffle</button><button class="btn small" id="clr">Deselect</button><button class="btn primary small" id="sub">Submit</button></div>`;
+      $('#shuf', ctlEl).addEventListener('click', () => { if (busy) return; st.order = TE.shuffle(TE.rng(rid()), st.order); save(); Sfx.tap(); layout(true); });
+      $('#clr', ctlEl).addEventListener('click', () => { if (busy) return; sel = []; layout(false); ctl(); });
+      $('#sub', ctlEl).addEventListener('click', submit);
+    }
+    $('#clr', ctlEl).disabled = !sel.length || busy;
+    $('#sub', ctlEl).disabled = sel.length !== 4 || busy;
+    $('#shuf', ctlEl).disabled = busy;
+  };
+  const tap = (n, b) => {
+    if (busy || st.done) return;
+    if (sel.includes(n)) sel = sel.filter((x) => x !== n); else if (sel.length < 4) sel.push(n); else return;
+    b.classList.toggle('on', sel.includes(n));
+    Sfx.tap(); ctl();
+  };
+  const submit = async () => {
+    if (busy || sel.length !== 4 || st.done) return;
     const key = sel.slice().sort().join('|');
     if (st.guesses.some((g) => g.slice().sort().join('|') === key)) { toast('Already guessed'); return; }
+    busy = true; ctl();
     st.guesses.push(sel.slice());
+    // the four picks hop in turn, like a drumroll
+    const picked = st.order.filter((n) => sel.includes(n)).map((n) => tiles.get(n));
+    picked.forEach((t, i) => t.animate([{ transform: 'none' }, { transform: 'translateY(-10px)' }, { transform: 'none' }], { duration: 300, delay: i * 90, easing: 'ease-out' }));
+    await wait(300 + 3 * 90 + 60);
+    if (!el.isConnected) return;
     const gs = sel.map(groupOf), counts = [0, 1, 2, 3].map((g) => gs.filter((x) => x === g).length), best = Math.max(...counts);
     if (best === 4) {
-      st.solved.push(counts.indexOf(4)); sel = [];
+      const gi = counts.indexOf(4);
       Sfx.good(); buzz(20);
-      if (st.solved.length === 4) { st.done = true; st.win = true; finish(); }
+      picked.forEach((t) => t.animate([{ transform: 'none', opacity: 1 }, { transform: 'scale(.82)', opacity: 0 }], { duration: 220, easing: 'ease-in', fill: 'forwards' }));
+      await wait(220);
+      st.solved.push(gi); sel = [];
+      if (st.solved.length === 4) { st.done = true; st.win = true; }
+      save();
+      addBar(gi, true); layout(true);
+      picked.forEach((t) => t.getAnimations().forEach((a) => a.cancel()));
+      if (st.done) { await wait(500); finish(); dots(); ctl(); after(); }
     } else {
       st.left--;
       Sfx.bad(); buzz([40, 30, 40]);
-      $$('.conn-tile.on', el).forEach(shake);
+      picked.forEach(shake);
       if (best === 3 && st.left > 0) toast('One away…');
-      if (st.left <= 0) { st.done = true; finish(); }
+      dots(true);
+      if (st.left <= 0) {
+        st.done = true; save();
+        await wait(700);
+        sel = []; layout(false);
+        // reveal the groups you missed, one at a time
+        for (const gi of [0, 1, 2, 3].filter((g) => !st.solved.includes(g))) {
+          addBar(gi, true);
+          C.groups[gi].names.forEach((n) => tiles.get(n).remove());
+          await wait(450);
+          if (!el.isConnected) return;
+        }
+        finish(); dots(); ctl(); after();
+      } else save();
     }
-    save();
-    setTimeout(draw, best === 4 ? 0 : 350);
+    busy = false; if (!st.done) ctl();
   };
   const finish = () => {
     sel = [];
@@ -131,6 +189,9 @@ function ConnectionsGame(practiceSeed) {
     $('#sh', el).addEventListener('click', () => shareOut(`CLUTCH Connections${daily ? ' #' + dailyNumber(dayKey()) : ''} 🏈\n${rows}`));
     $('#pr', el).addEventListener('click', () => ConnectionsGame('p' + rid()));
   };
-  draw();
+  // first paint: groups already found, the board, the counters
+  shownGroups().forEach((gi) => addBar(gi, false));
+  layout(false); dots(); ctl();
+  if (st.done) after();
   return el;
 }

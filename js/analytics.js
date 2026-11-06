@@ -4,7 +4,7 @@
 // its progress and any errors. The database rules make all of it write-only, so players can't read it.
 // The owner reads it on the hidden dashboard with the database secret, which is only stored on their phone.
 const TRACK_URL = 'https://clutch-98557-default-rtdb.firebaseio.com/analytics';
-const BUILD = 'v43';
+const BUILD = 'v44';
 // the events worth a line in the live feed (everything is still counted)
 const FEED = { season_end: 1, ring: 1, gdwin: 1, duelw: 1, daily: 1, rivalsw: 1, promo: 1, open_std: 1, open_pro: 1, open_leg: 1, open_icon: 1, code: 1, claim: 1, tour_done: 1, tour_skip: 1, first_open: 1, conn: 1, signup: 1 };
 const safeKey = (s) => String(s).replace(/[.#$/[\]\s]/g, '_').slice(0, 60) || '_';

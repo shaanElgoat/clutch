@@ -507,6 +507,17 @@ const REDEEM_CODES = {
   '4243197595': 15000,
   '4150862312': 25000,
   '2803328084': { pack: 'icon' },
+  // third batch: live from Nov 6 2026 ({ from } = the first day the code works)
+  '2523794987': { coins: 1000, from: '2026-11-06' },
+  '2091584302': { coins: 2000, from: '2026-11-06' },
+  '409275687': { pack: 'std', from: '2026-11-06' },
+  '2380107402': { coins: 3500, from: '2026-11-06' },
+  '4261700139': { pack: 'pro', from: '2026-11-06' },
+  '1264752845': { coins: 6000, from: '2026-11-06' },
+  '932650579': { pack: 'leg', from: '2026-11-06' },
+  '3962482736': { coins: 12000, from: '2026-11-06' },
+  '4152157191': { coins: 18000, from: '2026-11-06' },
+  '3201611337': { pack: 'icon', from: '2026-11-06' },
 };
 function redeemCode(raw) {
   const code = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -516,13 +527,15 @@ function redeemCode(raw) {
   if (d.redeemed.includes(key)) return { ok: false, msg: "You've already used that code." };
   const prize = REDEEM_CODES[key];
   if (!prize) return { ok: false, msg: "That code isn't valid." };
+  if (prize.from && todayKey() < prize.from) return { ok: false, msg: "That code isn't live yet. Try again tomorrow!" };
   d.redeemed.push(key);
   Track.ev('code', code);
   const pk = prize.pack ? PACKS.find((p) => p.id === prize.pack) : null;
-  if (pk) Obj.data().packs.push(pk.id); else d.coins += prize;
+  const coins = typeof prize === 'number' ? prize : prize.coins || 0;
+  if (pk) Obj.data().packs.push(pk.id); else d.coins += coins;
   Store.save();
   Sfx.coin(); Sfx.achievement(); confetti(1400);
-  return { ok: true, msg: pk ? `Code redeemed: a free ${pk.name} pack! Open it in Packs.` : `Code redeemed: +${prize.toLocaleString()} coins!` };
+  return { ok: true, msg: pk ? `Code redeemed: a free ${pk.name} pack! Open it in Packs.` : `Code redeemed: +${coins.toLocaleString()} coins!` };
 }
 
 // ================= BOOT =================

@@ -4,7 +4,7 @@
 // its progress and any errors. The database rules make all of it write-only, so players can't read it.
 // The owner reads it on the hidden dashboard with the database secret, which is only stored on their phone.
 const TRACK_URL = 'https://clutch-98557-default-rtdb.firebaseio.com/analytics';
-const BUILD = 'v42';
+const BUILD = 'v43';
 // the events worth a line in the live feed (everything is still counted)
 const FEED = { season_end: 1, ring: 1, gdwin: 1, duelw: 1, daily: 1, rivalsw: 1, promo: 1, open_std: 1, open_pro: 1, open_leg: 1, open_icon: 1, code: 1, claim: 1, tour_done: 1, tour_skip: 1, first_open: 1, conn: 1, signup: 1 };
 const safeKey = (s) => String(s).replace(/[.#$/[\]\s]/g, '_').slice(0, 60) || '_';
@@ -182,6 +182,7 @@ async function StatsDash(range) {
   $('#lock', el).addEventListener('click', () => { try { localStorage.removeItem('clutch_dash'); } catch (_) {} goTab('me'); });
   $$('[data-u]', el).forEach((b) => b.addEventListener('click', () => dashPlayer(U[b.dataset.u], b.dataset.u, D, days)));
   dashTips(el);
+  dashRulesOk().then((ok) => { if (ok === false && el.isConnected) el.querySelector('.dz-range').insertAdjacentHTML('afterend', `<button class="dz-warn" id="fix"><b>No stats are being saved yet</b><span>The database rules aren't published. Tap to fix.</span></button>`); const f = $('#fix', el); if (f) f.addEventListener('click', () => dashLogin()); });
 }
 function feedLine(f) {
   const i = f.i ? ` (${f.i})` : '';
@@ -221,9 +222,39 @@ function dashTips(el) {
     tip.style.top = Math.max(8, r.top - tip.offsetHeight - 8) + 'px';
   });
 }
-function dashLogin() {
+// can this phone write stats? (no = the database rules haven't been published yet)
+async function dashRulesOk() {
+  try { const r = await fetch(TRACK_URL + '.json', { method: 'PATCH', body: JSON.stringify({ [`d/${todayKey()}/${Track.id()}/s`]: { '.sv': { increment: 0 } } }) }); return r.ok; } catch (_) { return null; }
+}
+async function dashLogin(err) {
   const el = go(`<div class="topbar"><button class="icon-btn" data-act="home">${ico('back', 20)}</button><h2 class="d grow">Analytics</h2></div>
-    <div class="hero-card"><b>Owner only</b><p class="mute" style="font-weight:600;font-size:13.5px;margin:6px 0 12px">Paste your Firebase <b>database secret</b> (Project settings → Service accounts → Database secrets). It stays on this phone only.</p>
-    <input class="field" id="sec" type="password" autocomplete="off" style="width:100%"><button class="btn primary" id="go" style="margin-top:10px;width:100%">Open analytics</button></div>`);
-  $('#go', el).addEventListener('click', () => { const v = $('#sec', el).value.trim(); if (!v) return; try { localStorage.setItem('clutch_dash', v); } catch (_) {} StatsDash(); });
+    <div class="dz-card" id="s1"><h4>Step 1 · Database rules</h4><p class="mute" style="font-weight:600;margin:0">Checking…</p></div>
+    <div class="dz-card"><h4>Step 2 · Your database secret</h4>
+      <p class="mute" style="font-weight:600;font-size:13.5px;margin:0 0 10px">Firebase console → your project → gear icon → <b>Project settings</b> → <b>Service accounts</b> tab → <b>Database secrets</b> → <b>Show</b>. Copy it and paste it here. It's saved on this phone only.</p>
+      <input class="field" id="sec" type="password" autocomplete="off" placeholder="Paste the secret" value="${esc(DASH.secret())}" style="width:100%">
+      <p class="auth-msg" id="msg">${err ? esc(err) : ''}</p>
+      <button class="btn primary" id="go" style="width:100%">Open analytics</button></div>`);
+  $('#go', el).addEventListener('click', async () => {
+    const v = $('#sec', el).value.trim(), m = $('#msg', el);
+    if (!v) { m.textContent = 'Paste the secret first.'; return; }
+    m.style.color = 'var(--ink2)'; m.textContent = 'Checking…';
+    try {
+      const r = await fetch(`${TRACK_URL}.json?shallow=true&auth=${encodeURIComponent(v)}`);
+      if (r.status === 401 || r.status === 403) { m.style.color = 'var(--red)'; m.textContent = "That secret didn't work. Copy it again from Database secrets (the whole thing, no spaces)."; return; }
+      if (!r.ok) throw new Error();
+    } catch (_) { m.style.color = 'var(--red)'; m.textContent = "Couldn't reach the database. Check your internet."; return; }
+    try { localStorage.setItem('clutch_dash', v); } catch (_) {}
+    StatsDash();
+  });
+  const ok = await dashRulesOk();
+  const s1 = $('#s1', el); if (!s1 || !s1.isConnected) return;
+  if (ok) { s1.innerHTML = `<h4>Step 1 · Database rules</h4><p style="margin:0;font-weight:700;color:var(--mint)">${ico('check', 16)} Done. Stats are being recorded.</p>`; return; }
+  s1.innerHTML = `<h4>Step 1 · Database rules</h4>
+    <p class="mute" style="font-weight:600;font-size:13.5px;margin:0 0 10px">${ok === null ? "Couldn't check (offline?)." : '<b style="color:var(--red)">Not done yet</b>, so no stats are being saved.'} Tap <b>Copy rules</b>, then in the Firebase console open <b>Realtime Database</b> → <b>Rules</b> tab, delete everything in the box, paste, and tap <b>Publish</b>.</p>
+    <div class="two"><button class="btn primary" id="cp">Copy rules</button><button class="btn" id="re">Check again</button></div>`;
+  $('#cp', s1).addEventListener('click', async () => {
+    try { const t = await (await fetch('firebase-rules.json', { cache: 'no-store' })).text(); await navigator.clipboard.writeText(t); toast('Rules copied. Paste them in Firebase'); }
+    catch (_) { toast("Couldn't copy. Open firebase-rules.json on GitHub instead"); }
+  });
+  $('#re', s1).addEventListener('click', () => dashLogin());
 }

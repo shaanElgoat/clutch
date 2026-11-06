@@ -545,7 +545,7 @@ function boot() {
 }
 function start() {
   Track.start();
-  if (location.hash === '#stats') { history.replaceState(null, '', location.pathname); StatsDash(); if (window.__ldReady) window.__ldReady(); return; }
+  if (location.hash === '#stats' || new URLSearchParams(location.search).has('stats')) { history.replaceState(null, '', location.pathname); StatsDash(); if (window.__ldReady) window.__ldReady(); return; }
   const h = location.hash, q = new URLSearchParams(location.search);
   if (h.startsWith('#c=')) {
     const ch = b64urlDecode(h.slice(3));

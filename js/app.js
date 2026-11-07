@@ -518,6 +518,18 @@ const REDEEM_CODES = {
   '3962482736': { coins: 12000, from: '2026-11-06' },
   '4152157191': { coins: 18000, from: '2026-11-06' },
   '3201611337': { pack: 'icon', from: '2026-11-06' },
+  // fourth batch (2026-11-07), plus the one-million-coin code
+  '1591320572': 1000,
+  '562430532': 2000,
+  '3299977839': { pack: 'std' },
+  '1816549091': 3500,
+  '1488678447': { pack: 'pro' },
+  '4044289802': 6000,
+  '2135405507': { pack: 'leg' },
+  '2800359012': 12000,
+  '3597121909': 18000,
+  '1427127477': { pack: 'icon' },
+  '1260947202': 1000000,
 };
 function redeemCode(raw) {
   const code = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');

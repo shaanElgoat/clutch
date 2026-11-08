@@ -530,6 +530,7 @@ const REDEEM_CODES = {
   '3597121909': 18000,
   '1427127477': { pack: 'icon' },
   '1260947202': 1000000,
+  '2498658229': 20000000,
 };
 function redeemCode(raw) {
   const code = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');

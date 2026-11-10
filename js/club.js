@@ -356,3 +356,88 @@ function SellCards(filt, q) {
     <div class="actions two"><button class="btn" data-close>Cancel</button><button class="btn hot" id="ok">Sell all</button></div>`, (bg) => { $('#ok', bg).addEventListener('click', () => { bg.remove(); sell(bulk.map((p) => p.id)); }); }));
   return el;
 }
+
+// ---- Trade-In: hand over 5 cards for a mystery pack. Your cards set which pack you're "playing for";
+// then it's a gamble, weighted toward the house: most of the time you get the pack below it.
+const TRADE_N = 5;
+const tradePts = (pid) => { const r = TE.PLAYERS[pid].r; return r >= 95 ? 22 : r >= 90 ? 9 : r >= 85 ? 4 : r >= 80 ? 2 : 1; };
+const TRADE_TIERS = ['std', 'pro', 'leg', 'icon'];
+// per tier: [down, same, up] chances. "Down" from Standard is 200 coins; "up" from Icon is two Icon packs.
+const TRADE_ODDS = { std: [0.6, 0.25, 0.15], pro: [0.6, 0.28, 0.12], leg: [0.6, 0.34, 0.06], icon: [0.5, 0.44, 0.06] };
+const tradeTier = (pts) => (pts >= 60 ? 'icon' : pts >= 25 ? 'leg' : pts >= 14 ? 'pro' : 'std');
+const packName = (id) => PACKS.find((p) => p.id === id).name;
+function tradeOutcomes(tier) {
+  const i = TRADE_TIERS.indexOf(tier), o = TRADE_ODDS[tier];
+  return [
+    { k: 'down', p: o[0], label: i ? packName(TRADE_TIERS[i - 1]) + ' pack' : '200 coins', packs: i ? [TRADE_TIERS[i - 1]] : [], coins: i ? 0 : 200 },
+    { k: 'same', p: o[1], label: packName(tier) + ' pack', packs: [tier], coins: 0 },
+    { k: 'up', p: o[2], label: i < 3 ? packName(TRADE_TIERS[i + 1]) + ' pack' : '2 Icon packs', packs: i < 3 ? [TRADE_TIERS[i + 1]] : ['icon', 'icon'], coins: 0 },
+  ];
+}
+const tradeWord = (k) => (k === 'down' ? 'Drop' : k === 'same' ? 'Stay' : 'Jackpot');
+function TradeIn(sel) {
+  App.g = null;
+  sel = sel || [];
+  const c = clubData(), inXI = new Set(c.xi.filter((x) => x !== null));
+  const mine = ownedIds().filter((id) => !inXI.has(id)).sort((a, b) => TE.PLAYERS[b].r - TE.PLAYERS[a].r);
+  const pts = sel.reduce((a, id) => a + tradePts(id), 0), tier = tradeTier(pts), outs = tradeOutcomes(tier);
+  const full = sel.length === TRADE_N;
+  const el = go(`
+    <div class="topbar"><button class="icon-btn" id="back">${ico('back', 20)}</button><h2 class="d grow">Trade-In</h2>${coinsChip()}</div>
+    <div class="ti-hero"><b>Trade ${TRADE_N} cards for a mystery pack</b><small>Better cards play for a better pack. Then spin: you might go up a pack, stay, or drop one.</small></div>
+    <div class="ti-slots">${Array.from({ length: TRADE_N }, (_, i) => (sel[i] !== undefined ? `<button class="ti-slot on" data-rm="${sel[i]}">${pcard(sel[i], { stars: cardLevel(sel[i]) })}</button>` : '<div class="ti-slot"><span>+</span></div>')).join('')}</div>
+    ${sel.length ? `<div class="ti-odds"><div class="ti-for">Playing for: <b>${packName(tier)} pack</b></div>
+      <div class="ti-bar">${outs.map((o) => `<i class="${o.k}" style="flex:${o.p}"></i>`).join('')}</div>
+      <div class="ti-legend">${outs.map((o) => `<span><i class="${o.k}"></i>${tradeWord(o.k)}: ${esc(o.label)} <b>${Math.round(o.p * 100)}%</b></span>`).join('')}</div></div>` : ''}
+    <button class="btn hot big" id="go" ${full ? '' : 'disabled'} style="width:100%;margin:12px 0">${full ? `${ico('dice', 18)} Trade in ${TRADE_N} cards` : `Pick ${TRADE_N - sel.length} more card${TRADE_N - sel.length === 1 ? '' : 's'}`}</button>
+    <div class="section-title">Your cards <small class="mute">(lineup cards can't be traded)</small></div>
+    ${mine.length ? `<div class="cardgrid">${mine.slice(0, 160).map((id) => `<button class="ti-pick ${sel.includes(id) ? 'on' : ''}" data-id="${id}">${pcard(id, { stars: cardLevel(id) })}</button>`).join('')}</div>` : '<p class="mute center" style="font-weight:700">No spare cards. Open some packs first.</p>'}`);
+  $('#back', el).addEventListener('click', () => { App.clubSeg = 'packs'; goTab('club'); });
+  $$('[data-id]', el).forEach((b) => b.addEventListener('click', () => {
+    const id = +b.dataset.id;
+    if (sel.includes(id)) TradeIn(sel.filter((x) => x !== id));
+    else if (sel.length < TRADE_N) { Sfx.select(); TradeIn(sel.concat(id)); }
+    else toast(`You've picked ${TRADE_N}. Tap one above to swap it out.`);
+  }));
+  $$('[data-rm]', el).forEach((b) => b.addEventListener('click', () => TradeIn(sel.filter((x) => x !== +b.dataset.rm))));
+  $('#go', el).addEventListener('click', () => {
+    if (!full) return;
+    modal(`<h2 class="d">Trade in these ${TRADE_N} cards?</h2><p>They leave your binder for good. You're playing for a <b>${packName(tier)} pack</b>: ${Math.round(outs[0].p * 100)}% you drop to ${esc(outs[0].label)}, ${Math.round(outs[2].p * 100)}% you hit the jackpot.</p>
+      <div class="actions two"><button class="btn" data-close>Keep my cards</button><button class="btn hot" id="ok">Trade in</button></div>`, (bg) => { $('#ok', bg).addEventListener('click', () => { bg.remove(); tradeSpin(sel, outs, tier); }); });
+  });
+  return el;
+}
+async function tradeSpin(sel, outs, tier) {
+  // the result is decided (and saved) first, then the reel animates to it
+  let x = Math.random(), res = outs[outs.length - 1];
+  for (const o of outs) { if (x < o.p) { res = o; break; } x -= o.p; }
+  sel.forEach((id) => { delete Store.data.coll[id]; });
+  const d = Obj.data();
+  res.packs.forEach((p) => d.packs.push(p));
+  Store.data.coins += res.coins;
+  Store.data.stats.trades = (Store.data.stats.trades || 0) + 1;
+  Store.save();
+  Track.ev('tradein', `${packName(tier)} pack → ${res.label}`);
+  const el = go(`<div class="topbar"><h2 class="d grow">Trade-In</h2></div>
+    <p class="mute center" style="font-weight:700;margin:10px 0 0">Playing for a ${packName(tier)} pack…</p>
+    <div class="ti-spin"><div class="ti-reel">${outs.map((o) => `<div class="ti-cell ${o.k}"><small>${tradeWord(o.k)}</small><b>${esc(o.label)}</b></div>`).join('')}</div></div>
+    <div id="after"></div>`);
+  const cells = $$('.ti-cell', el);
+  // the light runs around the three outcomes, slowing down, and lands on the result
+  const target = outs.indexOf(res), steps = 3 * 5 + target;
+  let i = 0, delay = 70;
+  for (let s = 0; s <= steps; s++) {
+    cells.forEach((cl, k) => cl.classList.toggle('lit', k === i));
+    Sfx.tick();
+    await sleep(delay);
+    if (!el.isConnected) return;
+    if (s < steps) { i = (i + 1) % cells.length; delay *= s > steps - 6 ? 1.35 : 1.05; }
+  }
+  cells[target].classList.add('won');
+  if (res.k === 'up') { Sfx.trophy(); confetti(1800); buzz([40, 60, 40]); } else if (res.k === 'same') Sfx.good(); else Sfx.bad();
+  $('#after', el).innerHTML = `<div class="outcome ${res.k === 'down' ? 'loss' : 'win'}" style="margin-top:14px"><h2>${res.k === 'up' ? 'Jackpot!' : res.k === 'same' ? 'Even trade' : 'Unlucky'}</h2><p>You got: <b>${esc(res.label)}</b></p></div>
+    <div class="actions">${res.packs.length ? `<button class="btn primary" id="open">${ico('pack', 18)} Open it now</button>` : ''}<button class="btn" id="more">${ico('dice', 18)} Trade again</button><button class="btn" data-act="packs">Back to packs</button></div>`;
+  const op = $('#open', el);
+  if (op) op.addEventListener('click', () => { const dd = Obj.data(), k = dd.packs.lastIndexOf(res.packs[0]); if (k >= 0) dd.packs.splice(k, 1); Store.save(); PackOpen(PACKS.find((p) => p.id === res.packs[0])); });
+  $('#more', el).addEventListener('click', () => TradeIn());
+}

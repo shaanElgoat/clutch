@@ -1216,3 +1216,27 @@ html, body { overflow-x: clip; }
 .conn-dot.lost { animation: connLost .45s ease; }
 @keyframes connLost { 0% { transform: scale(1); background: #0b1020; } 40% { transform: scale(1.6); background: #e11d48; } 100% { transform: scale(1); } }
 .conn-ctl .btn:disabled { opacity: .45; }
+
+/* trade-in */
+.ti-entry { background: linear-gradient(135deg, #fff4e0, #fff); border-color: #ffd89a; margin-top: 14px; }
+.ti-entry .fp-ic { background: linear-gradient(135deg, #ffb020, #ff6a1a); }
+.ti-hero { padding: 12px 14px; border-radius: 18px; background: linear-gradient(135deg, #fff4e0, #fff); border: 1px solid #ffd89a; margin-bottom: 12px; }
+.ti-hero b { display: block; font-size: 15px; } .ti-hero small { color: var(--ink2); font-weight: 600; font-size: 12.5px; }
+.ti-slots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 10px; }
+.ti-slot { aspect-ratio: .72; border-radius: 12px; border: 2px dashed #cdd3e1; display: grid; place-items: center; color: #b6bdcc; font-size: 22px; font-weight: 800; overflow: hidden; padding: 0; background: none; }
+.ti-slot.on { border: none; }
+.ti-slot .pcard, .ti-pick .pcard { width: 100%; }
+.ti-pick { padding: 0; border-radius: 12px; position: relative; transition: transform .12s ease; }
+.ti-pick.on { outline: 3px solid #ff6a1a; outline-offset: 2px; transform: scale(.95); }
+.ti-odds { padding: 12px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); }
+.ti-for { font-weight: 700; font-size: 14px; margin-bottom: 8px; }
+.ti-bar { display: flex; height: 12px; border-radius: 99px; overflow: hidden; gap: 2px; }
+.ti-bar i, .ti-legend i { background: #e2e6ef; } .ti-bar i.down, .ti-legend i.down { background: #f87171; } .ti-bar i.same, .ti-legend i.same { background: #94a3b8; } .ti-bar i.up, .ti-legend i.up { background: #22c55e; }
+.ti-legend { display: grid; gap: 4px; margin-top: 8px; font-size: 12.5px; font-weight: 600; color: var(--ink2); }
+.ti-legend span { display: flex; align-items: center; gap: 6px; } .ti-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; } .ti-legend b { margin-left: auto; color: var(--ink); }
+.ti-spin { margin-top: 24px; }
+.ti-reel { display: grid; gap: 10px; }
+.ti-cell { padding: 18px; border-radius: 18px; background: #eef1f7; text-align: center; border: 3px solid transparent; transition: background .12s, border-color .12s, transform .12s; }
+.ti-cell small { display: block; font-weight: 800; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--mute); } .ti-cell b { font-size: 18px; }
+.ti-cell.lit { border-color: #0b1020; transform: scale(1.02); background: #fff; }
+.ti-cell.won.down { background: #fee2e2; border-color: #f87171; } .ti-cell.won.same { background: #e2e8f0; border-color: #64748b; } .ti-cell.won.up { background: #dcfce7; border-color: #22c55e; animation: tabPop .5s ease; }

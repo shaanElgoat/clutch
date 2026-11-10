@@ -1,7 +1,7 @@
 'use strict';
 // CLUTCH engine: pure game logic (no DOM). Runs in the browser and in Node for tests.
 (function (root) {
-  const DATA = typeof module !== 'undefined' ? require('./data.js') : { ERAS, ERA_LABEL, TEAMS, SEASON25, CURRENT, CURRENT_ERA };
+  const DATA = typeof module !== 'undefined' ? require('./data.js') : { ERAS, ERA_LABEL, TEAMS, SEASON25, CURRENT, CURRENT_ERA, CURRENT_MOVES, CURRENT_ADDS };
   const DATA_VERSION = 4;
 
   // ---------- seeded randomness ----------
@@ -50,6 +50,28 @@
   DATA.TEAMS.forEach((t, ti) => DATA.ERAS.forEach((era) => { if (t.eras[era]) addSquad(t, ti, era, t.eras[era]); }));
   DATA.TEAMS.forEach((t, ti) => { if (DATA.SEASON25[t.id]) addSquad(t, ti, '25', DATA.SEASON25[t.id]); });
   DATA.TEAMS.forEach((t, ti) => { if (DATA.CURRENT[t.id]) addSquad(t, ti, DATA.CURRENT_ERA, DATA.CURRENT[t.id]); });
+  // mid-season moves: a traded player keeps his card id and joins his new team; new arrivals get fresh ids
+  // at the very end, so every card already in someone's binder still points at the same player
+  const curSquad = (code) => SQUADS.find((s) => s.era === DATA.CURRENT_ERA && DATA.TEAMS[s.team].id === code);
+  const resort = (sq) => sq.players.sort((a, b) => POS_ORDER[PLAYERS[a].pos] - POS_ORDER[PLAYERS[b].pos] || PLAYERS[b].r - PLAYERS[a].r);
+  Object.entries(DATA.CURRENT_MOVES || {}).forEach(([name, code]) => {
+    const p = PLAYERS.find((x) => x.era === DATA.CURRENT_ERA && x.name === name), to = curSquad(code);
+    if (!p || !to) throw new Error('bad move: ' + name + ' -> ' + code);
+    const from = SQUADS[p.sq];
+    from.players.splice(from.players.indexOf(p.id), 1);
+    to.players.push(p.id); p.team = to.team; p.sq = to.id; resort(to);
+  });
+  Object.entries(DATA.CURRENT_ADDS || {}).forEach(([code, roster]) => {
+    const sq = curSquad(code);
+    if (!sq) throw new Error('bad team: ' + code);
+    String(roster).split('|').forEach((s) => {
+      const m = /^(.*) (QB|RB|WR|TE|OL|DL|LB|CB|S|K|HC) (\d+)$/.exec(s.trim());
+      if (!m) throw new Error('bad player entry: ' + s);
+      const p = { id: PLAYERS.length, name: m[1], pos: m[2], r: +m[3], team: sq.team, era: DATA.CURRENT_ERA, sq: sq.id };
+      PLAYERS.push(p); sq.players.push(p.id);
+    });
+    resort(sq);
+  });
   const CUR_SQ = SQUADS.filter((s) => s.era === DATA.CURRENT_ERA).map((s) => s.id);
   const isCurrent = (pid) => PLAYERS[pid].era === DATA.CURRENT_ERA;
   const teamOf = (sq) => DATA.TEAMS[SQUADS[sq].team];

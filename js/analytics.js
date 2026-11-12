@@ -6,7 +6,7 @@
 const TRACK_URL = 'https://clutch-98557-default-rtdb.firebaseio.com/analytics';
 const BUILD = 'v50';
 // the events worth a line in the live feed (everything is still counted)
-const FEED = { season_end: 1, ring: 1, gdwin: 1, duelw: 1, daily: 1, rivalsw: 1, promo: 1, open_std: 1, open_pro: 1, open_leg: 1, open_icon: 1, code: 1, claim: 1, tour_done: 1, tour_skip: 1, first_open: 1, conn: 1, tradein: 1, signup: 1 };
+const FEED = { season_end: 1, ring: 1, gdwin: 1, duelw: 1, daily: 1, rivalsw: 1, promo: 1, open_std: 1, open_pro: 1, open_leg: 1, open_icon: 1, code: 1, claim: 1, tour_done: 1, tour_skip: 1, first_open: 1, conn: 1, tradein: 1, mk_buy: 1, mk_list: 1, signup: 1 };
 const safeKey = (s) => String(s).replace(/[.#$/[\]\s]/g, '_').slice(0, 60) || '_';
 
 const Track = {
@@ -90,7 +90,7 @@ const dur = (s) => { s = Math.round(s || 0); return s < 60 ? s + 's' : s < 3600 
 const dayAdd = (k, n) => { const [y, m, d] = k.split('-').map(Number); return todayKey(new Date(y, m - 1, d + n)); };
 // friendlier names for button and event keys
 const ACT_NAME = { season: 'Season', daily: 'Daily Draft', friends: 'Play with friends', party: 'Pass & play', online: 'Online room', duel: 'Draft Duel', cap: 'Salary Cap', gameday: 'Gameday', hl: "Who's Better?", kick: 'Kick It', grid: 'The Grid', who: "Who's That?", drill: '2-Minute Drill', conn: 'Connections', club: 'My Club', packs: 'Packs', binder: 'Binder', goals: 'Objectives', tour: 'Tutorial', help: 'How to play', tab_play: 'Season tab', tab_games: 'Games tab', tab_club: 'Club tab', tab_trophies: 'Trophies tab', tab_me: 'Me tab' };
-const EV_NAME = { season: 'Seasons finished', season_end: 'Seasons finished', sgw: 'Season games won', playoffs: 'Playoff trips', ring: 'Super Bowls won', clutch: 'Clutch Calls won', gameday: 'Gamedays played', gdwin: 'Gamedays won', daily: 'Daily Drafts', puzzle: 'Daily puzzles finished', hl: "Who's Better? runs", kick: 'Kick It runs', rivals: 'Rivals games', rivalsw: 'Rivals wins', duelg: 'Draft Duel games', duelw: 'Draft Duel series won', capw: 'Salary Cap wins', pack: 'Packs opened', code: 'Codes redeemed', claim: 'Objectives claimed', tour_done: 'Tutorial finished', tour_skip: 'Tutorial skipped', first_open: 'New installs', tradein: 'Trade-ins', conn: 'Connections finished', promo: 'Rivals promotions' };
+const EV_NAME = { season: 'Seasons finished', season_end: 'Seasons finished', sgw: 'Season games won', playoffs: 'Playoff trips', ring: 'Super Bowls won', clutch: 'Clutch Calls won', gameday: 'Gamedays played', gdwin: 'Gamedays won', daily: 'Daily Drafts', puzzle: 'Daily puzzles finished', hl: "Who's Better? runs", kick: 'Kick It runs', rivals: 'Rivals games', rivalsw: 'Rivals wins', duelg: 'Draft Duel games', duelw: 'Draft Duel series won', capw: 'Salary Cap wins', pack: 'Packs opened', code: 'Codes redeemed', claim: 'Objectives claimed', tour_done: 'Tutorial finished', tour_skip: 'Tutorial skipped', first_open: 'New installs', tradein: 'Trade-ins', mk_list: 'Market listings', mk_buy: 'Market buys', mk_sold: 'Market sales paid', conn: 'Connections finished', promo: 'Rivals promotions' };
 
 function bars(rows, o) {
   o = o || {};
@@ -189,7 +189,7 @@ async function StatsDash(range) {
 function feedLine(f) {
   const i = f.i ? ` (${f.i})` : '';
   if (/^open_/.test(f.e)) return `opened a ${({ open_std: 'Standard', open_pro: 'Pro', open_leg: 'Legend', open_icon: 'Icon' })[f.e] || ''} pack${i}`;
-  return (({ season_end: 'finished a season', ring: 'won the Super Bowl', gdwin: 'won a Gameday', duelw: 'won a Draft Duel series', daily: 'played the Daily Draft', puzzle: 'finished a daily puzzle', rivalsw: 'won a Rivals game', promo: 'got promoted in Rivals', pack: 'opened a pack', code: 'redeemed a code', claim: 'claimed an objective', tour_done: 'finished the tutorial', tour_skip: 'skipped the tutorial', first_open: 'opened CLUTCH for the first time', conn: 'finished Connections', signup: 'created an account', tradein: 'did a Trade-In' })[f.e] || f.e) + i;
+  return (({ season_end: 'finished a season', ring: 'won the Super Bowl', gdwin: 'won a Gameday', duelw: 'won a Draft Duel series', daily: 'played the Daily Draft', puzzle: 'finished a daily puzzle', rivalsw: 'won a Rivals game', promo: 'got promoted in Rivals', pack: 'opened a pack', code: 'redeemed a code', claim: 'claimed an objective', tour_done: 'finished the tutorial', tour_skip: 'skipped the tutorial', first_open: 'opened CLUTCH for the first time', conn: 'finished Connections', signup: 'created an account', tradein: 'did a Trade-In', mk_buy: 'bought on the market', mk_list: 'listed a card' })[f.e] || f.e) + i;
 }
 function dashPlayer(u, id, D, days) {
   if (!u) return;

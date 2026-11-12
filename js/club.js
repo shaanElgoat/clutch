@@ -125,6 +125,7 @@ function ClubScreen() {
       <button class="btn primary big" id="play" ${clubReady() ? '' : 'disabled'}>${ico('shield', 18)} ${!clubReady() ? `Fill all 12 spots (${filled}/12)` : c.match ? 'Rivals: finish your match' : 'Rivals'}</button>
       <div class="two"><button class="btn" id="auto">${ico('sparkle', 18)} Auto-build</button><button class="btn" id="gd" ${clubReady() ? '' : 'disabled'}>${ico('clipboard', 18)} Gameday</button></div>
       <div class="two">${filled < 12 ? `<button class="btn" data-act="packs">${ico('pack', 18)} Get cards</button>` : `<button class="btn" data-act="binder">${ico('cards', 18)} Binder</button>`}<button class="btn" id="sell">${ico('coin', 18)} Sell cards</button></div>
+      <button class="btn" data-act="market">${ico('users', 18)} Transfer Market</button>
     </div>
     <div class="section-title">This season</div>
     <div class="stat-grid"><div class="stat"><div class="si mint">${ico('check', 18)}</div><b>${c.sw}</b><small>Wins</small></div><div class="stat"><div class="si pink">${ico('x', 18)}</div><b>${c.sl}</b><small>Losses</small></div><div class="stat"><div class="si violet">${ico('crown', 18)}</div><b>Div ${c.top}</b><small>All-time best</small></div></div>

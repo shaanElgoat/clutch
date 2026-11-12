@@ -114,7 +114,7 @@ function AuthScreen(o, mode) {
       <div class="seg two" style="margin:0 0 14px"><button class="${up ? 'on' : ''}" data-m="up">Create account</button><button class="${up ? '' : 'on'}" data-m="in">Sign in</button></div>
       <form id="f" class="auth-form" autocomplete="on">
         ${up ? `<label>GM name<input class="field" id="nm" maxlength="14" autocomplete="nickname" value="${esc(Store.data.name || '')}" placeholder="What should we call you?"></label>` : ''}
-        <label>Email<input class="field" id="em" type="email" autocomplete="email" inputmode="email" required></label>
+        <label>Email<input class="field" id="em" type="email" autocomplete="${up ? 'off' : 'email'}" inputmode="email" required></label>
         <label>Password<input class="field" id="pw" type="password" autocomplete="${up ? 'new-password' : 'current-password'}" minlength="6" required placeholder="${up ? 'At least 6 characters' : ''}"></label>
         <p class="auth-msg" id="msg"></p>
         <button class="btn primary big" id="go" type="submit">${up ? 'Create account' : 'Sign in'}</button>

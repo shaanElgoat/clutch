@@ -553,7 +553,7 @@ function redeemCode(raw) {
 
 // ================= BOOT =================
 const ACTIONS = {
-  home: () => goTab(App.tab || 'play'), tour: () => startTour(), dailytab: () => goTab('games'), duel: () => runOr('duel', DuelStart), cap: () => runOr('cap', CapStart), binder: Cards, goals: Objectives, tradein: () => TradeIn(), conn: () => ConnectionsGame(), help: Help, quit: () => quitDraft(), season: () => runOr('season', () => SeasonSetup('quick')), daily: () => (Runs.get('daily') ? resumeRun('daily') : openDaily()), gameday: () => runOr('gameday', GamedayStart),
+  home: () => goTab(App.tab || 'play'), tour: () => startTour(), dailytab: () => goTab('games'), duel: () => runOr('duel', DuelStart), cap: () => runOr('cap', CapStart), binder: Cards, goals: Objectives, market: () => TransferMarket(), tradein: () => TradeIn(), conn: () => ConnectionsGame(), help: Help, quit: () => quitDraft(), season: () => runOr('season', () => SeasonSetup('quick')), daily: () => (Runs.get('daily') ? resumeRun('daily') : openDaily()), gameday: () => runOr('gameday', GamedayStart),
   hl: () => runOr('hl', WhosBetter), friends: FriendsMenu, party: () => runOr('party', PartySetup), online: () => OnlineScreen(),
   club: () => ClubScreen(), grid: () => GridGame(), who: () => MysteryGame(), drill: () => (Runs.get('drill') ? resumeRun('drill') : DrillStart()), kick: () => runOr('kick', KickIt), packs: Packs,
 };

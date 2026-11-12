@@ -100,6 +100,57 @@
           }
         }
       }
+    },
+    "market": {
+      ".read": "auth != null",
+      "l": {
+        ".indexOn": [
+          "s",
+          "t"
+        ],
+        "$lid": {
+          ".write": "auth != null && $lid.matches(/^[a-z0-9]{8,20}$/) && ((!data.exists() && newData.child('s').val() === auth.uid) || (data.exists() && data.child('s').val() === auth.uid && !newData.exists() && (!data.child('b').exists() || data.child('p').val() === true)))",
+          ".validate": "newData.hasChildren(['s', 'pid', 'price', 't'])",
+          "s": {
+            ".validate": "newData.isString()"
+          },
+          "sn": {
+            ".validate": "newData.isString() && newData.val().length <= 14"
+          },
+          "pid": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 20000"
+          },
+          "price": {
+            ".validate": "newData.isNumber() && newData.val() >= 50 && newData.val() <= 150000"
+          },
+          "t": {
+            ".validate": "newData.val() === now"
+          },
+          "x": {
+            ".write": "auth != null && !data.exists() && data.parent().child('s').val() === auth.uid",
+            ".validate": "newData.val() === data.parent().child('t').val() + 172800000"
+          },
+          "b": {
+            ".write": "auth != null && !data.exists() && newData.val() === auth.uid && auth.uid !== data.parent().child('s').val() && data.parent().child('x').exists() && now < data.parent().child('x').val()",
+            ".validate": "newData.isString()"
+          },
+          "bn": {
+            ".write": "auth != null && !data.exists() && !data.parent().child('b').exists() && newData.parent().child('b').val() === auth.uid",
+            ".validate": "newData.isString() && newData.val().length <= 14"
+          },
+          "bt": {
+            ".write": "auth != null && !data.exists() && !data.parent().child('b').exists() && newData.parent().child('b').val() === auth.uid",
+            ".validate": "newData.val() === now"
+          },
+          "p": {
+            ".write": "auth != null && data.parent().child('s').val() === auth.uid && data.parent().child('b').exists()",
+            ".validate": "newData.val() === true"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
     }
   }
 }

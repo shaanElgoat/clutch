@@ -1244,3 +1244,16 @@ html, body { overflow-x: clip; }
 .auth-why { display: flex; align-items: center; gap: 8px; justify-content: center; padding: 10px 12px; border-radius: 14px; background: #eef3ff; color: #2f5ef0; font-weight: 800; font-size: 13px; margin-bottom: 14px; }
 .acct-cta { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 18px; background: linear-gradient(135deg, #eef3ff, #fff); border: 1px solid #cfdcff; }
 .acct-cta b { display: block; font-size: 14.5px; } .acct-cta small { color: var(--ink2); font-weight: 600; font-size: 12.5px; }
+
+/* transfer market */
+.mk-entry { background: linear-gradient(135deg, #eef3ff, #fff); border-color: #cfdcff; margin-top: 14px; }
+.mk-entry .fp-ic { background: linear-gradient(135deg, #5b8cff, #2f5ef0); }
+.mk-entry + .ti-entry { margin-top: 0; }
+.mk-tabs { grid-template-columns: repeat(3, 1fr); }
+.mk-chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 8px; }
+.mk-chips .chip { flex: none; }
+.mk-info { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 14px; background: #eef3ff; color: var(--ink2); font-size: 12.5px; font-weight: 600; margin-bottom: 10px; }
+.mk-mine { display: grid; justify-items: end; gap: 4px; } .mk-mine b { font-size: 13px; } .mk-mine small { color: var(--mute); font-weight: 700; }
+.mk-price { display: grid; gap: 6px; font-weight: 800; font-size: 13px; color: var(--ink2); margin-top: 10px; } .mk-price .field { width: 100%; font-size: 18px; font-weight: 800; text-align: center; }
+.mk-news { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+.mk-chips { scrollbar-width: none; } .mk-chips::-webkit-scrollbar { display: none; }

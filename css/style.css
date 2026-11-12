@@ -1240,3 +1240,7 @@ html, body { overflow-x: clip; }
 .ti-cell small { display: block; font-weight: 800; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--mute); } .ti-cell b { font-size: 18px; }
 .ti-cell.lit { border-color: #0b1020; transform: scale(1.02); background: #fff; }
 .ti-cell.won.down { background: #fee2e2; border-color: #f87171; } .ti-cell.won.same { background: #e2e8f0; border-color: #64748b; } .ti-cell.won.up { background: #dcfce7; border-color: #22c55e; animation: tabPop .5s ease; }
+
+.auth-why { display: flex; align-items: center; gap: 8px; justify-content: center; padding: 10px 12px; border-radius: 14px; background: #eef3ff; color: #2f5ef0; font-weight: 800; font-size: 13px; margin-bottom: 14px; }
+.acct-cta { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 18px; background: linear-gradient(135deg, #eef3ff, #fff); border: 1px solid #cfdcff; }
+.acct-cta b { display: block; font-size: 14.5px; } .acct-cta small { color: var(--ink2); font-weight: 600; font-size: 12.5px; }

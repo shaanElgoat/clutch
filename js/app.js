@@ -566,7 +566,8 @@ function boot() {
   applyTheme();
   document.body.insertAdjacentHTML('afterbegin', DEFS + '<div class="blobs"><i></i><i></i><i></i></div>' + funLayer());
   // an account is required: no session on this device means the sign-in screen first
-  if (Account.enabled() && !Account.load()) { AuthScreen(() => { applyTheme(); start(); }); if (window.__ldReady) window.__ldReady(); return; }
+  // accounts are optional: load the session if there is one, guests go straight in
+  Account.load();
   start();
 }
 function start() {

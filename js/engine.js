@@ -194,7 +194,7 @@
     const r = rng(st.seed + ':spin:' + st.spinNo++);
     let sq;
     const list = st.pool === 'all' ? SQUADS.map((s) => s.id) : CUR_SQ;
-    // weaker rosters come up more often than the elite ones, so a stacked team has to be earned
+    // every team is equally likely on a spin (SPINW 0); opponents' OPP boost keeps the ring just as hard
     const open = list.filter((q) => st.seen.indexOf(q) < 0);
     const pool = open.length ? open : list;
     const w = pool.map(spinWeight), tot = w.reduce((x, y) => x + y, 0);
@@ -286,7 +286,7 @@
   }
 
   // ---------- game simulation ----------
-  const SIM = { TD: 0.17, TDK: 0.08, FG: 0.15, HOME: 1.5, POSS: 13, OPP: 4.5, SPINW: 0.18, POK: 0.185, RS: 0.4, PS: 1.5, MID: 91 };
+  const SIM = { TD: 0.17, TDK: 0.08, FG: 0.15, HOME: 1.5, POSS: 13, OPP: 5.4, SPINW: 0, POK: 0.185, RS: 0.4, PS: 1.5, MID: 91 };
   // playoff CPU teams play above their rating, round by round: the ring should be almost impossible
   const PO_BOOST = { 'Wild Card': 4, 'Divisional': 8, 'Conference Championship': 12, 'Super Bowl': 17 };
   function drive(r, off, def, k) {

@@ -1257,3 +1257,25 @@ html, body { overflow-x: clip; }
 .mk-price { display: grid; gap: 6px; font-weight: 800; font-size: 13px; color: var(--ink2); margin-top: 10px; } .mk-price .field { width: 100%; font-size: 18px; font-weight: 800; text-align: center; }
 .mk-news { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
 .mk-chips { scrollbar-width: none; } .mk-chips::-webkit-scrollbar { display: none; }
+
+/* transfer market v2: card grid */
+.mk-filters { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; margin-bottom: 8px; }
+.mk-filters .field { min-width: 0; padding-left: 10px; padding-right: 10px; }
+.mk-filters select.field { font-weight: 700; padding-right: 6px; }
+.mk-count { font-size: 12px; font-weight: 800; color: var(--mute); margin: 2px 2px 8px; text-transform: uppercase; letter-spacing: .04em; }
+.mk-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 8px; }
+@media (min-width: 520px) { .mk-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.mk-tile { display: grid; justify-items: center; gap: 5px; padding: 0; background: none; border: 0; text-align: center; min-width: 0; transition: transform .12s ease; }
+.mk-tile:active { transform: scale(.96); }
+.mk-tile .pcard { width: 100%; }
+.mk-tag { display: inline-flex; align-items: center; justify-content: center; gap: 4px; width: 100%; padding: 6px 4px; border-radius: 10px; background: linear-gradient(135deg, #5b8cff, #2f5ef0); color: #fff; font-weight: 800; font-size: 13px; box-shadow: 0 3px 0 #2346c7; }
+.mk-tag.own { background: #e6eaf3; color: var(--ink2); box-shadow: 0 3px 0 #cfd6e4; }
+.mk-tag.sell { background: linear-gradient(135deg, #34d399, #10b981); box-shadow: 0 3px 0 #0b8f63; }
+.mk-sub { font-size: 10.5px; font-weight: 700; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.mk-sub a { color: var(--red); text-decoration: underline; cursor: pointer; }
+.mk-tile.mine { opacity: .75; }
+.mk-empty { grid-column: 1 / -1; font-weight: 700; margin-top: 24px; }
+.mk-sheet-card { width: 150px; margin: 0 auto; }
+.mk-price-big { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 28px; font-weight: 800; margin: 10px 0 6px; }
+.mk-lbl { font-weight: 800; font-size: 13px; color: var(--ink2); margin: 12px 0 6px; }
+.mk-dur { grid-template-columns: repeat(3, 1fr); margin: 0; }

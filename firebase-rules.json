@@ -121,14 +121,14 @@
             ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 20000"
           },
           "price": {
-            ".validate": "newData.isNumber() && newData.val() >= 50 && newData.val() <= 150000"
+            ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 1000000000"
           },
           "t": {
             ".validate": "newData.val() === now"
           },
           "x": {
             ".write": "auth != null && !data.exists() && data.parent().child('s').val() === auth.uid",
-            ".validate": "newData.val() === data.parent().child('t').val() + 172800000"
+            ".validate": "newData.val() === data.parent().child('t').val() + 3600000 || newData.val() === data.parent().child('t').val() + 7200000 || newData.val() === data.parent().child('t').val() + 18000000"
           },
           "b": {
             ".write": "auth != null && !data.exists() && newData.val() === auth.uid && auth.uid !== data.parent().child('s').val() && data.parent().child('x').exists() && now < data.parent().child('x').val()",

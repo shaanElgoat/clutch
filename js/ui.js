@@ -32,6 +32,7 @@ const Store = {
       this.data.news26 = false;
       if (had) this.data.resetNotice = true;
     }
+    if (typeof greatReset === 'function' && greatReset(this.data)) return this.load();
     return this.data;
   },
   save() { try { localStorage.setItem(this.key, JSON.stringify(this.data)); } catch (_) {} },

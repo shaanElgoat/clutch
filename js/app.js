@@ -65,6 +65,7 @@ function Home() {
   const el = go(`
     <div class="home-head">${levelChip()}<span class="grow"></span>${coinsChip()}</div>
 
+    ${grBanner()}
     ${continueStrip(['season', 'daily', 'challenge', 'party', 'duel', 'cap', 'gameday', 'drill', 'kick', 'hl'])}
 
     <button class="feature" data-act="season"><div class="ft-glow"></div><span class="tag">${ico('star', 14)} 2026 season</span><h3>Season</h3><p>Spin a team, draft 12, chase 17-0 and the ring.</p><span class="go">${Runs.get('season') ? 'Continue' : 'Play'} ${ico('chevron', 16)}</span><div class="art">${helmet('#ffffff', '#ffc531')}</div><i class="fx fx1">${funShape('star', '#ffd75a')}</i><i class="fx fx2">${funShape('star', '#ffffff')}</i><i class="fx fx3">${funShape('ring', '#ff3f7d')}</i></button>
@@ -75,6 +76,7 @@ function Home() {
     <div class="group">
       ${lrow({ attr: 'data-act="daily"', col: 'sun', ic: 'calendar', t: 'Daily Draft', sub: today ? esc(today.title + ' · ' + today.rec + (today.rank ? ` · #${today.rank} of ${today.of}` : '')) : 'Same spins for everyone today', meta: today ? 'Done' : 'New', hot: !today })}
       ${lrow({ attr: 'data-act="friends"', col: 'ink', ic: 'users', t: 'Play with friends', sub: 'Online room or pass &amp; play' })}
+      ${lrow({ attr: 'data-act="invite"', col: 'mint', ic: 'gift', t: 'Invite friends', sub: 'You both get 2 free Pro packs', meta: 'Free', hot: true })}
     </div>`, 'has-tabs');
   tabbar('play');
   if (!d.toured) { d.seenHelp = true; Store.save(); setTimeout(() => { if (!Store.data.toured && !document.querySelector('.coach')) startTour(); }, 900); }
@@ -383,7 +385,7 @@ function Profile() {
       <button class="toggle ${d.haptics ? 'on' : ''}" data-tg="haptics"><span class="ic">${ico('phone', 20)}</span><div class="grow"><h4>Vibration</h4></div><div class="sw"></div></button>
       <button class="toggle ${d.fastSpin ? 'on' : ''}" data-tg="fastSpin"><span class="ic">${ico('bolt', 20)}</span><div class="grow"><h4>Fast spins</h4><p>Shorter wheel animation</p></div><div class="sw"></div></button>
     </div>
-    <div class="actions"><button class="btn primary" data-act="updates">${ico('sparkle', 18)} What's new</button><button class="btn" data-act="tour">Replay the tutorial</button><button class="btn" id="tipsAgain">Show tips again</button><button class="btn" data-act="help">How to play</button><button class="btn" id="reset" style="color:var(--red)">Reset all progress</button></div>`, 'has-tabs');
+    <div class="actions"><button class="btn primary" data-act="invite">${ico('gift', 18)} Invite friends · 2 free Pro packs</button><button class="btn" data-act="updates">${ico('sparkle', 18)} What's new</button><button class="btn" data-act="tour">Replay the tutorial</button><button class="btn" id="tipsAgain">Show tips again</button><button class="btn" data-act="help">How to play</button><button class="btn" id="reset" style="color:var(--red)">Reset all progress</button></div>`, 'has-tabs');
   tabbar('me');
   const ta = $('#tipsAgain', el); if (ta) ta.addEventListener('click', () => { Store.data.tips = {}; Store.save(); toast('Tips will show again'); });
   const rb = $('#rbtn', el), ri = $('#rcode', el);
@@ -553,7 +555,7 @@ function redeemCode(raw) {
 
 // ================= BOOT =================
 const ACTIONS = {
-  home: () => goTab(App.tab || 'play'), tour: () => startTour(), dailytab: () => goTab('games'), duel: () => runOr('duel', DuelStart), cap: () => runOr('cap', CapStart), binder: Cards, goals: Objectives, updates: () => UpdatesScreen(), market: () => TransferMarket(), tradein: () => TradeIn(), conn: () => ConnectionsGame(), help: Help, quit: () => quitDraft(), season: () => runOr('season', () => SeasonSetup('quick')), daily: () => (Runs.get('daily') ? resumeRun('daily') : openDaily()), gameday: () => runOr('gameday', GamedayStart),
+  home: () => goTab(App.tab || 'play'), tour: () => startTour(), dailytab: () => goTab('games'), duel: () => runOr('duel', DuelStart), cap: () => runOr('cap', CapStart), binder: Cards, goals: Objectives, invite: () => InviteScreen(), grinfo: () => grInfo(), updates: () => UpdatesScreen(), market: () => TransferMarket(), tradein: () => TradeIn(), conn: () => ConnectionsGame(), help: Help, quit: () => quitDraft(), season: () => runOr('season', () => SeasonSetup('quick')), daily: () => (Runs.get('daily') ? resumeRun('daily') : openDaily()), gameday: () => runOr('gameday', GamedayStart),
   hl: () => runOr('hl', WhosBetter), friends: FriendsMenu, party: () => runOr('party', PartySetup), online: () => OnlineScreen(),
   club: () => ClubScreen(), grid: () => GridGame(), who: () => MysteryGame(), drill: () => (Runs.get('drill') ? resumeRun('drill') : DrillStart()), kick: () => runOr('kick', KickIt), packs: Packs,
 };
@@ -588,6 +590,8 @@ function start() {
   if (q.get('room')) { App.pendingRoom = q.get('room').toUpperCase().slice(0, 5); history.replaceState(null, '', location.pathname); OnlineScreen(); if (window.__ldReady) window.__ldReady(); return; }
   goTab('play');
   checkUpdates();
+  grNotice();
+  inviteOnOpen();
   if (window.__ldReady) window.__ldReady();
   if (Store.data.resetNotice) { Store.data.resetNotice = false; Store.save(); later(resetNotice, 1300); }
 }

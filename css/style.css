@@ -1290,3 +1290,15 @@ html, body { overflow-x: clip; }
 .upd-new { font-size: 10px; font-weight: 800; color: #fff; background: #ff3f7d; padding: 3px 7px; border-radius: 99px; letter-spacing: .05em; }
 .upd ul { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; }
 .upd li { font-size: 13.5px; line-height: 1.4; color: var(--ink2); font-weight: 600; }
+
+/* great reset + invites */
+.gr-banner { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 12px 14px; border-radius: 18px; background: linear-gradient(135deg, #ff3f7d, #7a5cff); color: #fff; margin-bottom: 12px; box-shadow: 0 10px 22px -12px #7a5cff; }
+.gr-banner b { color: #fff; } .gr-banner .grow > b { display: flex; align-items: center; gap: 6px; font-size: 15px; } .gr-banner small { display: block; font-size: 12.5px; font-weight: 600; opacity: .95; margin-top: 3px; line-height: 1.35; }
+.gr-box { display: grid; gap: 2px; padding: 14px; border-radius: 18px; background: linear-gradient(135deg, #f3efff, #fff); border: 1px solid #ddd2ff; margin: 10px 0; }
+.gr-box small { color: var(--mute); font-weight: 700; } .gr-box b { font-size: 26px; } .gr-box .gr-packs { font-size: 18px; color: #7a5cff; }
+.gr-tiers { display: grid; gap: 4px; margin: 8px 0 12px; } .gr-tiers div { display: flex; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 12px; background: #f4f6fb; font-size: 13px; } .gr-tiers span { font-weight: 800; } .gr-tiers b { text-align: right; }
+.inv-hero { display: grid; justify-items: center; gap: 6px; text-align: center; padding: 18px 16px; border-radius: 22px; background: linear-gradient(135deg, #e9fbf3, #fff); border: 1px solid #b9ead4; margin-bottom: 14px; }
+.inv-hero b { font-size: 17px; } .inv-hero > small { color: var(--ink2); font-weight: 600; font-size: 13px; }
+.inv-big { width: 58px; height: 58px; border-radius: 18px; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, #34d399, #10b981); }
+.inv-code { font-size: 34px; font-weight: 800; letter-spacing: .18em; padding: 8px 18px; border-radius: 16px; background: #fff; border: 2px dashed #10b981; margin: 8px 0; }
+.inv-count { color: var(--mute); font-weight: 800; font-size: 12px; }

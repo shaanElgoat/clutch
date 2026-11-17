@@ -68,6 +68,9 @@
         },
         "$other": {
           ".validate": false
+        },
+        "ref": {
+          ".validate": "newData.isString() && !data.exists()"
         }
       }
     },
@@ -149,6 +152,21 @@
           "$other": {
             ".validate": false
           }
+        }
+      }
+    },
+    "invites": {
+      "$code": {
+        ".read": true,
+        ".write": "auth != null && !data.exists() && newData.val() === auth.uid && $code.matches(/^[A-Z0-9]{6}$/)"
+      }
+    },
+    "refs": {
+      "$code": {
+        ".read": "auth != null && root.child('invites').child($code).val() === auth.uid",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid && !data.exists() && root.child('invites').child($code).exists() && root.child('invites').child($code).val() !== auth.uid && !root.child('users').child(auth.uid).child('ref').exists()",
+          ".validate": "newData.val() === now"
         }
       }
     }

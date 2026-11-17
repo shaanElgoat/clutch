@@ -35,6 +35,8 @@ const Market = {
     try { mine = await Market.mine(); } catch (_) { return []; }
     const news = [];
     for (const [lid, l] of Object.entries(mine)) {
+      // listings from before the Great Reset are cleared without payouts or returns
+      if (Date.now() >= GR_AT && l.t < GR_AT) { try { if (l.b) await Market.one(lid, { method: 'PATCH', body: JSON.stringify({ p: true }) }); await Market.one(lid, { method: 'DELETE' }); } catch (_) {} continue; }
       if (l.b) {
         if (!d.mkPaid[lid]) {
           const got = mkPayout(l.price);
@@ -101,7 +103,7 @@ const mkTile = (l, o) => `<button class="mk-tile ${o.cls || ''}" ${o.attr || ''}
 const MK_POS = ['All', 'QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'CB', 'S', 'K', 'HC'];
 async function mkBuy(box, f) {
   const all = await Market.all(), now = Date.now(), me = Account.user.uid;
-  const live = Object.entries(all).map(([id, l]) => ({ id, ...l })).filter((l) => !l.b && l.x > now && TE.PLAYERS[l.pid]);
+  const live = Object.entries(all).map(([id, l]) => ({ id, ...l })).filter((l) => !l.b && l.x > now && TE.PLAYERS[l.pid] && (now < GR_AT || l.t >= GR_AT));
   box.innerHTML = `
     <div class="mk-filters">
       <input class="field" id="q" placeholder="Search players" value="${esc(f.q)}">

@@ -4,6 +4,15 @@
 // them from the Me tab. Keep it short and simple: a title and a few plain-English bullet points.
 const UPDATES = [
   {
+    id: 8, date: '2026-11-16', icon: 'refresh', title: 'The Great Reset (tonight at midnight)',
+    items: [
+      'Everyone starts fresh: cards, coins, My Club, Rivals, levels and records all reset at midnight.',
+      'You get starting packs based on the best team you can field right now. The best teams get 3 Icon packs!',
+      "Tonight is your last chance to open packs and build your best team. Check the countdown on the Season tab.",
+      'New: invite a friend and you BOTH get 2 free Pro packs (Season tab or Me tab).',
+    ],
+  },
+  {
     id: 7, date: '2026-11-13', icon: 'users', title: 'Transfer Market is here',
     items: [
       'Buy and sell cards with real players. Find it on the Packs page or in My Club.',

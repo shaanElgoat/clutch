@@ -7,7 +7,7 @@ const UPDATES = [
     id: 8, date: '2026-11-16', icon: 'refresh', title: 'The Great Reset (tonight at midnight)',
     items: [
       'Everyone starts fresh: cards, coins, My Club, Rivals, levels and records all reset at midnight.',
-      'You get starting packs based on the best team you can field right now. The best teams get 3 Icon packs!',
+      'You get starting packs based on the best team you can field right now. The better your team, the better the packs.',
       "Tonight is your last chance to open packs and build your best team. Check the countdown on the Season tab.",
       'New: invite a friend and you BOTH get 2 free Pro packs (Season tab or Me tab).',
     ],

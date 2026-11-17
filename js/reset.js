@@ -8,13 +8,13 @@ const GR_AT = new Date(2026, 10, 17, 0, 0, 0).getTime();
 const GR_KEEP = ['name', 'sound', 'haptics', 'fastSpin', 'toured', 'tips', 'seenUpdate', 'aid', 'aFirst', 'anonId', 'noTrack', 'nudgeAt', 'redeemed', 'daily', 'puzzles', 'dv', 'seenHelp', 'refUsed', 'refClaimed', 'invCode', 'invFor', 'pendingRef', 'mkPaid'];
 // the reward ladder (team OVR = average of the best 12 cards you could field, empty spots count as 60)
 const GR_TIERS = [
-  { min: 95, packs: ['icon', 'icon', 'icon'] },
-  { min: 92, packs: ['icon', 'icon'] },
-  { min: 90, packs: ['icon', 'leg'] },
-  { min: 88, packs: ['leg', 'leg'] },
-  { min: 85, packs: ['leg', 'pro'] },
-  { min: 80, packs: ['pro', 'pro', 'pro'] },
-  { min: 0, packs: ['pro', 'pro'] },
+  { min: 95, packs: ['icon', 'leg'] },
+  { min: 92, packs: ['icon'] },
+  { min: 90, packs: ['leg', 'leg'] },
+  { min: 88, packs: ['leg', 'pro'] },
+  { min: 85, packs: ['leg'] },
+  { min: 80, packs: ['pro', 'pro'] },
+  { min: 0, packs: ['pro'] },
 ];
 const grReward = (ovr) => GR_TIERS.find((t) => ovr >= t.min).packs;
 const grPackList = (packs) => {

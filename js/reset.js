@@ -11,10 +11,10 @@ const GR_TIERS = [
   { min: 95, packs: ['icon', 'leg'] },
   { min: 92, packs: ['icon'] },
   { min: 90, packs: ['leg', 'leg'] },
-  { min: 88, packs: ['leg', 'pro'] },
-  { min: 85, packs: ['leg'] },
-  { min: 80, packs: ['pro', 'pro'] },
-  { min: 0, packs: ['pro'] },
+  { min: 88, packs: ['leg', 'pro', 'pro'] },
+  { min: 85, packs: ['leg', 'pro'] },
+  { min: 80, packs: ['pro', 'pro', 'pro'] },
+  { min: 0, packs: ['pro', 'pro'] },
 ];
 const grReward = (ovr) => GR_TIERS.find((t) => ovr >= t.min).packs;
 const grPackList = (packs) => {

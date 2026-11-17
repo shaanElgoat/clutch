@@ -1,83 +1,46 @@
 'use strict';
 // WHAT'S NEW: every time the game changes, add an entry to the TOP of this list (highest id first).
 // Players see the new ones once, the next time they open the game, and can scroll back through
-// them from the Me tab. Keep it short and simple: a title and a few plain-English bullet points.
+// them from the Me tab. Keep it SHORT: a 2-4 word title and 1-3 lines of under 10 words each.
 const UPDATES = [
-  {
-    id: 10, date: '2026-11-17', icon: 'globe', title: 'Head-to-Head with friends',
-    items: [
-      'New in Play with friends: Head-to-Head for 2 to 8 players.',
-      'Everyone drafts at the same time, then you call the plays live: you pick the play, your friend picks the defense.',
-      '2 players is a 1v1 match. 3 to 8 players is a tournament bracket, and the top seeds get byes.',
-      "If someone doesn't pick in time, the game picks for them, so it never gets stuck.",
-    ],
-  },
-  {
-    id: 9, date: '2026-11-16', icon: 'refresh', title: 'The Great Reset (tonight at midnight)',
-    items: [
-      'Everyone starts fresh: cards, coins, My Club, Rivals, levels and records all reset at midnight.',
-      'You get starting packs based on the best team you can field right now. The better your team, the better the packs.',
-      'You also keep 5% of your net worth (your coins, cards and unopened packs) as coins. Everything else is wiped.',
-      "Tonight is your last chance to open packs and build your best team. Check the countdown on the Season tab.",
-      'New: invite a friend and you BOTH get 2 free Pro packs (Season tab or Me tab).',
-    ],
-  },
-  {
-    id: 7, date: '2026-11-13', icon: 'users', title: 'Transfer Market is here',
-    items: [
-      'Buy and sell cards with real players. Find it on the Packs page or in My Club.',
-      'Set any price you want, and choose to list for 1, 2 or 5 hours.',
-      "If it doesn't sell, the card comes straight back to you.",
-      'You need a free account to use it (Me tab, then Create account).',
-    ],
-  },
-  {
-    id: 6, date: '2026-11-13', icon: 'refresh', title: 'Fairer spins',
-    items: [
-      'Every team now has the same chance to come up on a spin.',
-      'Opponents got a little tougher, so the ring is just as hard to win.',
-    ],
-  },
-  {
-    id: 5, date: '2026-11-11', icon: 'user', title: 'Accounts',
-    items: [
-      'Make a free account to back up your cards and coins.',
-      'Sign in on any phone and pick up where you left off.',
-      'Playing as a guest still works for everything except the Transfer Market.',
-    ],
-  },
-  {
-    id: 4, date: '2026-11-09', icon: 'dice', title: 'Trade-In',
-    items: [
-      'Swap 5 spare cards for a mystery pack (on the Packs page).',
-      'You might drop a pack, stay the same, or hit the jackpot. The odds are shown before you spin.',
-    ],
-  },
-  {
-    id: 3, date: '2026-11-09', icon: 'star', title: 'Week 10 ratings update',
-    items: [
-      'Ratings updated from this season: breakout players went up, slumping players went down.',
-      'Trade deadline moves are in: traded players now show up on their new teams.',
-      'Cards you own update automatically. Nothing gets lost.',
-    ],
-  },
-  {
-    id: 2, date: '2026-11-05', icon: 'shield', title: 'Rivals changes',
-    items: [
-      'Your division now lasts the whole month. Rewards still come every week.',
-      'Each division up is a lot tougher, so a stronger club matters.',
-      'Team OVR is now simply the average of the cards on your field.',
-    ],
-  },
-  {
-    id: 1, date: '2026-11-04', icon: 'sparkle', title: 'Connections and more',
-    items: [
-      'New daily puzzle: Connections. Find the 4 hidden groups of players.',
-      'Sell spare cards in My Club.',
-      'Duplicates of the same player now always merge and add a star.',
-      'Play with friends now looks like a normal season, at 4x speed.',
-    ],
-  },
+  { id: 10, date: '2026-11-17', icon: 'globe', title: 'Play your friends live', items: [
+    'New Head-to-Head mode in Play with friends.',
+    'You call the plays. Your friend calls the defense.',
+    '2 players = 1v1. 3 to 8 players = a tournament.',
+  ] },
+  { id: 9, date: '2026-11-16', icon: 'refresh', title: 'The Great Reset', items: [
+    'Everyone starts fresh at midnight.',
+    'Better team now = better starting packs.',
+    'You keep 5% of what you own as coins.',
+  ] },
+  { id: 7, date: '2026-11-13', icon: 'users', title: 'Transfer Market', items: [
+    'Buy and sell cards with real players.',
+    'Pick any price. List for 1, 2 or 5 hours.',
+    'Needs a free account.',
+  ] },
+  { id: 6, date: '2026-11-13', icon: 'refresh', title: 'Fairer spins', items: [
+    'Every team has the same chance to come up.',
+  ] },
+  { id: 5, date: '2026-11-11', icon: 'user', title: 'Accounts', items: [
+    'Make a free account to save your progress.',
+    'Play on any phone.',
+  ] },
+  { id: 4, date: '2026-11-09', icon: 'dice', title: 'Trade-In', items: [
+    'Swap 5 cards for a mystery pack.',
+    'Win big, stay even, or drop a pack.',
+  ] },
+  { id: 3, date: '2026-11-09', icon: 'star', title: 'New ratings', items: [
+    'Ratings updated from this season.',
+    'Traded players are on their new teams.',
+  ] },
+  { id: 2, date: '2026-11-05', icon: 'shield', title: 'Rivals changes', items: [
+    'Divisions now last the whole month.',
+    'Rewards still come every week.',
+  ] },
+  { id: 1, date: '2026-11-04', icon: 'sparkle', title: 'Connections', items: [
+    'New daily puzzle: find 4 groups of players.',
+    'Sell spare cards in My Club.',
+  ] },
 ];
 const latestUpdate = () => (UPDATES[0] ? UPDATES[0].id : 0);
 const fmtUpdDate = (k) => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d).toLocaleString('en-US', { month: 'short', day: 'numeric' }); };
@@ -89,14 +52,13 @@ function checkUpdates() {
   const d = Store.data, last = d.seenUpdate || 0, top = latestUpdate();
   if (!last && !d.toured && !(d.stats && d.stats.played)) { d.seenUpdate = top; Store.save(); return; }
   if (last >= top) return;
-  const fresh = UPDATES.filter((u) => u.id > last).slice(0, 3);
+  const fresh = UPDATES.filter((u) => u.id > last).slice(0, 2);
   setTimeout(() => {
     if (document.querySelector('.coach') || document.querySelector('.modal-bg')) { setTimeout(checkUpdates, 4000); return; }
     d.seenUpdate = top; Store.save();
-    modal(`<div class="center"><div class="intro-ic" style="margin:0 auto 8px;background:linear-gradient(135deg,#5b8cff,#2f5ef0)">${ico('sparkle', 26)}</div><h2 class="d" style="margin:0">What's new</h2>
-      <p class="mute" style="font-weight:600;margin:4px 0 10px">Here's what changed since you last played.</p></div>
+    modal(`<div class="center"><div class="intro-ic" style="margin:0 auto 8px;background:linear-gradient(135deg,#5b8cff,#2f5ef0)">${ico('sparkle', 26)}</div><h2 class="d" style="margin:0 0 10px">What's new</h2></div>
       <div class="upd-list">${fresh.map((u) => updCard(u, true)).join('')}</div>
-      <button class="btn primary big" data-close style="width:100%;margin-top:10px">Let's play</button>`, null, 'sheet');
+      <button class="btn primary big" data-close style="width:100%;margin-top:12px">Got it</button>`, null, 'sheet');
     Sfx.select();
   }, 1600);
 }

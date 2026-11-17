@@ -1349,3 +1349,11 @@ html, body { overflow-x: clip; }
 .hh-opt { padding: 12px 10px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); box-shadow: 0 3px 0 #dfe4ee; text-align: left; } .hh-opt:active { transform: translateY(2px); box-shadow: none; }
 .hh-opt b { display: block; font-size: 15px; } .hh-opt small { color: var(--mute); font-weight: 700; font-size: 11.5px; }
 .hh-locked { display: grid; justify-items: center; gap: 4px; padding: 16px; margin-top: 14px; border-radius: 18px; background: #f4f6fb; font-weight: 700; text-align: center; } .hh-locked small { color: var(--mute); }
+
+/* what's new: bigger, simpler */
+.upd { padding: 14px 16px; }
+.upd-head b { font-size: 17px; }
+.upd ul { list-style: none; padding: 0; margin: 10px 0 0; gap: 7px; }
+.upd li { position: relative; padding-left: 20px; font-size: 15px; line-height: 1.35; color: var(--ink); font-weight: 600; }
+.upd li::before { content: ''; position: absolute; left: 4px; top: .5em; width: 8px; height: 8px; border-radius: 50%; background: #2f5ef0; }
+.upd:not(.fresh) li::before { background: #b8c1d6; }

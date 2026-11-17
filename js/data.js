@@ -294,4 +294,49 @@ const CURRENT_ADDS = {
   NYJ: `Adonai Mitchell WR 77`,
 };
 
-if (typeof module !== 'undefined') module.exports = { ERAS, ERA_LABEL, TEAMS, SEASON25, CURRENT, CURRENT_ERA, CURRENT_MOVES, CURRENT_ADDS };
+// ---------------------------------------------------------------------------------------------------
+// NAME SAFETY SWITCH. When on, every real team becomes a city + an invented nickname and every real
+// player/coach gets an invented name (same person -> same fake name everywhere; ratings, positions and
+// stats are unchanged). Turn it on for everyone, instantly, from the Firebase console:
+//   Realtime Database -> Data -> add  config / safeNames = true   (set it back to false to undo)
+// Phones pick it up the next time the game opens. SAFE_NAMES_FORCE = true also turns it on in code.
+const SAFE_NAMES_FORCE = false;
+const SAFE_NAMES = SAFE_NAMES_FORCE || (typeof localStorage !== 'undefined' && (() => { try { return localStorage.getItem('clutch_safe') === '1'; } catch (_) { return false; } })());
+const SAFE_TEAMS = {
+  ARI: ['Arizona', 'Scorpions'],
+  ATL: ['Atlanta', 'Firebirds'],
+  BAL: ['Baltimore', 'Ironclads'],
+  BUF: ['Buffalo', 'Blizzard'],
+  CAR: ['Carolina', 'Copperheads'],
+  CHI: ['Chicago', 'Hammers'],
+  CIN: ['Cincinnati', 'Rivermen'],
+  CLE: ['Cleveland', 'Foundry'],
+  DAL: ['Dallas', 'Wranglers'],
+  DEN: ['Denver', 'Summit'],
+  DET: ['Detroit', 'Motors'],
+  GB: ['Green Bay', 'Lumberjacks'],
+  HOU: ['Houston', 'Comets'],
+  IND: ['Indianapolis', 'Racers'],
+  JAX: ['Jacksonville', 'Tides'],
+  KC: ['Kansas City', 'Blaze'],
+  LV: ['Las Vegas', 'Jackpots'],
+  LAC: ['Los Angeles', 'Surf'],
+  LAR: ['Los Angeles', 'Stars'],
+  MIA: ['Miami', 'Flamingos'],
+  MIN: ['Minnesota', 'Northmen'],
+  NE: ['New England', 'Anchors'],
+  NO: ['New Orleans', 'Krewe'],
+  NYG: ['New York', 'Empire'],
+  NYJ: ['New York', 'Skyline'],
+  PHI: ['Philadelphia', 'Liberty'],
+  PIT: ['Pittsburgh', 'Forge'],
+  SF: ['San Francisco', 'Gold'],
+  SEA: ['Seattle', 'Evergreens'],
+  TB: ['Tampa Bay', 'Thunder'],
+  TEN: ['Tennessee', 'Outlaws'],
+  WAS: ['Washington', 'Statesmen'],
+};
+const SAFE_FIRST = 'Aaron Adrian Alex Andre Austin Blake Brandon Brett Brian Bryce Caleb Calvin Cameron Carter Chase Chris Cole Colin Connor Corey Dalton Damon Dante Darius Darnell David Davis Dean Derek Devin Dominic Drew Dylan Eli Eric Evan Felix Garrett Grant Hayden Hunter Isaiah Ivan Jace Jalen Jamal James Jared Jason Javon Jay Jordan Josh Julian Justin Kade Keenan Kendall Kevin Kyle Lamont Landon Lance Leon Logan Lucas Malcolm Marco Marcus Mason Max Micah Miles Nate Nolan Omar Owen Parker Quentin Reed Reggie Rico Roman Ryan Seth Shane Sterling Terrance Theo Trent Trey Tristan Tyler Vince Wade Wesley Xavier Zach'.split(' ');
+const SAFE_LAST = 'Abbott Alston Archer Ashby Bailey Barrow Baxter Beckett Bishop Blackwell Bowen Bradford Brennan Briggs Burke Caldwell Carver Chandler Cobb Coleman Conway Corbin Crane Crawford Dalton Dawson Delaney Dorsey Drake Duncan Easton Ellison Emery Fairbanks Farley Fleming Fletcher Ford Fowler Gaines Garner Gentry Gibbs Goodwin Graves Hale Hammond Harlow Hayes Holloway Hughes Ingram Jacobs Jennings Kane Keller Kendrick Kirby Lane Langley Lawson Lyons Maddox Mercer Monroe Moody Nash Norris Oakley Osborne Pace Palmer Pierce Porter Pruitt Quinn Ramsey Reeves Rhodes Rollins Sawyer Sheppard Shields Slater Stokes Summers Sutton Tate Thornton Townsend Tucker Vance Vaughn Walsh Warden Whitaker Wilder Winters Wolfe Wyatt York Yates'.split(' ');
+
+if (typeof module !== 'undefined') module.exports = { ERAS, ERA_LABEL, TEAMS, SEASON25, CURRENT, CURRENT_ERA, CURRENT_MOVES, CURRENT_ADDS, SAFE_NAMES, SAFE_TEAMS, SAFE_FIRST, SAFE_LAST };

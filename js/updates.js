@@ -4,6 +4,15 @@
 // them from the Me tab. Keep it short and simple: a title and a few plain-English bullet points.
 const UPDATES = [
   {
+    id: 10, date: '2026-11-17', icon: 'globe', title: 'Head-to-Head with friends',
+    items: [
+      'New in Play with friends: Head-to-Head for 2 to 8 players.',
+      'Everyone drafts at the same time, then you call the plays live: you pick the play, your friend picks the defense.',
+      '2 players is a 1v1 match. 3 to 8 players is a tournament bracket, and the top seeds get byes.',
+      "If someone doesn't pick in time, the game picks for them, so it never gets stuck.",
+    ],
+  },
+  {
     id: 9, date: '2026-11-16', icon: 'refresh', title: 'The Great Reset (tonight at midnight)',
     items: [
       'Everyone starts fresh: cards, coins, My Club, Rivals, levels and records all reset at midnight.',
@@ -48,7 +57,7 @@ const UPDATES = [
     id: 3, date: '2026-11-09', icon: 'star', title: 'Week 10 ratings update',
     items: [
       'Ratings updated from this season: breakout players went up, slumping players went down.',
-      'Trade deadline moves are in, like Jessie Bates to the Jaguars and Jeffery Simmons to the Bears.',
+      'Trade deadline moves are in: traded players now show up on their new teams.',
       'Cards you own update automatically. Nothing gets lost.',
     ],
   },

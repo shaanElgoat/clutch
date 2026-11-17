@@ -1318,3 +1318,34 @@ html, body { overflow-x: clip; }
 .rv-soon b { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 15px; }
 .rv-soon small { color: var(--ink2); font-weight: 600; font-size: 12.5px; }
 .soon-tag { font-size: 10px; font-weight: 800; letter-spacing: .06em; color: #fff; background: #ff3f7d; padding: 3px 7px; border-radius: 99px; }
+
+/* head-to-head */
+.mode-blurb { font-size: 13px; font-weight: 600; color: var(--ink2); line-height: 1.45; padding: 10px 12px; border-radius: 14px; background: #f4f6fb; margin-top: 8px; }
+.hh-wait { display: grid; justify-items: center; gap: 4px; text-align: center; padding: 22px; margin-bottom: 12px; border-radius: 20px; background: linear-gradient(135deg, #eef3ff, #fff); border: 1px solid #cfdcff; }
+.hh-wait small { color: var(--mute); font-weight: 800; }
+.hh-spin { width: 54px; height: 54px; border-radius: 18px; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, #5b8cff, #2f5ef0); animation: hhPulse 1.4s ease-in-out infinite; }
+@keyframes hhPulse { 50% { transform: scale(1.08); } }
+.hh-bracket { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(150px, 1fr); gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+.hh-round { display: flex; flex-direction: column; justify-content: space-around; gap: 10px; }
+.hh-rt { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--mute); text-align: center; }
+.hh-match { display: grid; gap: 2px; padding: 8px 10px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); text-align: left; width: 100%; }
+.hh-match > div { display: flex; justify-content: space-between; gap: 6px; font-size: 13px; font-weight: 700; } .hh-match > div span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hh-match > div.w { color: var(--mint); } .hh-match small { font-size: 10.5px; font-weight: 800; color: var(--mute); }
+.hh-match.live { border-color: #ff3f7d; box-shadow: 0 0 0 2px rgba(255,63,125,.15); } .hh-match.live small { color: #ff3f7d; }
+.hh-match:disabled { opacity: .75; }
+.hh-champ { display: grid; justify-items: center; gap: 4px; padding: 16px; border-radius: 20px; background: linear-gradient(135deg, #fff6d6, #fff); border: 1px solid #ffe08a; margin-bottom: 12px; } .hh-champ svg { width: 54px; height: 54px; } .hh-champ b { font-size: 18px; }
+.hh-live { padding: 14px; border-radius: 22px; background: linear-gradient(160deg, #0f1631, #1d2a5c); color: #fff; }
+.hh-score { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; text-align: center; }
+.hh-score small { display: block; font-size: 12px; font-weight: 700; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .hh-score b { font-size: 40px; font-weight: 800; }
+.hh-score .ball small::after { content: ' 🏈'; }
+.hh-clock { font-weight: 800; font-size: 13px; } .hh-clock small { display: block; font-size: 18px; opacity: 1; }
+.hh-field { position: relative; margin-top: 12px; height: 34px; border-radius: 10px; background: repeating-linear-gradient(90deg, #1f8f4e 0 10%, #23a058 10% 20%); overflow: hidden; }
+.hh-field span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 12px; font-weight: 800; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+.hh-ball { position: absolute; top: 4px; bottom: 4px; width: 4px; border-radius: 2px; background: #ffd75a; box-shadow: 0 0 10px #ffd75a; transition: left .5s ease; }
+.hh-last { margin-top: 12px; text-align: center; font-weight: 800; font-size: 15px; min-height: 22px; } .hh-last.pop { animation: tabPop .4s ease; }
+.hh-role { margin: 14px 0 6px; font-weight: 800; font-size: 15px; text-align: center; } .hh-role.off { color: #2f5ef0; } .hh-role.def { color: #e11d48; }
+.hh-timer { height: 6px; border-radius: 99px; background: #e6eaf3; overflow: hidden; margin-bottom: 10px; } .hh-timer i { display: block; height: 100%; width: 100%; background: #2f5ef0; transition: width 1s linear; } .hh-timer i.low { background: #e11d48; }
+.hh-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hh-opt { padding: 12px 10px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); box-shadow: 0 3px 0 #dfe4ee; text-align: left; } .hh-opt:active { transform: translateY(2px); box-shadow: none; }
+.hh-opt b { display: block; font-size: 15px; } .hh-opt small { color: var(--mute); font-weight: 700; font-size: 11.5px; }
+.hh-locked { display: grid; justify-items: center; gap: 4px; padding: 16px; margin-top: 14px; border-radius: 18px; background: #f4f6fb; font-weight: 700; text-align: center; } .hh-locked small { color: var(--mute); }

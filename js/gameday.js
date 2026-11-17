@@ -290,6 +290,37 @@
   const fmtClock = (s) => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
   const yardText = (ball) => (ball === 50 ? 'Midfield' : ball < 50 ? 'Own ' + ball : 'Opp ' + (100 - ball));
 
-  const API = { PLAYS, DEFS, create, next, callPlay, callDefense, autoPlay, result, fmtClock, yardText, fgProb, roster };
+  // ---------- head-to-head: two humans ----------
+  // 'us' = player A, 'them' = player B. Every snap the side with the ball calls a play and the other side
+  // a defence (or a kick on 4th down). Deterministic: seed + the list of calls => the same game everywhere.
+  function pvpCreate(a, b, seed) { const g = create(a, b, seed); g.halfRecv = 'them'; return g; }
+  function pvpOffense(g) {
+    const side = g.poss, O = g[side].R;
+    const opts = Object.keys(PLAYS).map((id) => ({ id, name: PLAYS[id].name, sub: PLAYS[id].keys.map((k) => O[k].name).filter((v, i, x) => x.indexOf(v) === i).join(' + ') }));
+    if (g.down === 4) {
+      const dist = 100 - g.ball + 17;
+      if (dist <= 62) opts.push({ id: 'fg', name: 'Field goal', sub: `${dist} yds · ${Math.round(fgProb(O, dist) * 100)}%` });
+      opts.push({ id: 'punt', name: 'Punt', sub: 'Flip the field' });
+    }
+    return opts;
+  }
+  const pvpDefense = () => Object.keys(DEFS).map((id) => ({ id, name: DEFS[id].name, sub: DEFS[id].blurb }));
+  function pvpStep(g, off, def) {
+    if (g.over) return null;
+    const side = g.poss;
+    g.calls.push(off + '/' + def);
+    const ev = off === 'fg' || off === 'punt' ? kick(g, side, off) : apply(g, snap(g, side, PLAYS[off] ? off : 'run', DEFS[def] ? def : 'zone'));
+    endCheck(g);
+    return ev;
+  }
+  // a stand-in call for a player who ran out of time (the same on every phone)
+  function pvpAuto(seed, idx, g, role) {
+    const r = TE.rng(seed + ':auto:' + idx);
+    if (role === 'def') return pickW({ blitz: 1, zone: 1.2, man: 1, runstop: 1 }, r());
+    if (g.down === 4) { const dist = 100 - g.ball + 17; if (dist <= 50) return 'fg'; if (g.ball < 60 || g.togo > 3) return 'punt'; }
+    return pickW({ run: 1.2, short: 1.3, deep: 0.5, pa: 0.6 }, r());
+  }
+
+  const API = { PLAYS, DEFS, create, next, callPlay, callDefense, autoPlay, result, fmtClock, yardText, fgProb, roster, pvpCreate, pvpOffense, pvpDefense, pvpStep, pvpAuto };
   if (typeof module !== 'undefined') module.exports = API; else root.GD = API;
 })(typeof window !== 'undefined' ? window : globalThis);

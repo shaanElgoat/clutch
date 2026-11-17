@@ -1,7 +1,7 @@
 'use strict';
 // CLUTCH engine: pure game logic (no DOM). Runs in the browser and in Node for tests.
 (function (root) {
-  const DATA = typeof module !== 'undefined' ? require('./data.js') : { ERAS, ERA_LABEL, TEAMS, SEASON25, CURRENT, CURRENT_ERA, CURRENT_MOVES, CURRENT_ADDS };
+  const DATA = typeof module !== 'undefined' ? require('./data.js') : { ERAS, ERA_LABEL, TEAMS, SEASON25, CURRENT, CURRENT_ERA, CURRENT_MOVES, CURRENT_ADDS, SAFE_NAMES, SAFE_TEAMS, SAFE_FIRST, SAFE_LAST };
   const DATA_VERSION = 4;
 
   // ---------- seeded randomness ----------
@@ -72,6 +72,15 @@
     });
     resort(sq);
   });
+  // name safety switch: invented names for every team and person (same real name -> same fake name)
+  const fakeName = (real) => {
+    const h = hash('nm:' + real), h2 = hash('ln:' + real);
+    return DATA.SAFE_FIRST[h % DATA.SAFE_FIRST.length] + ' ' + DATA.SAFE_LAST[h2 % DATA.SAFE_LAST.length];
+  };
+  if (DATA.SAFE_NAMES) {
+    DATA.TEAMS.forEach((t) => { const s = DATA.SAFE_TEAMS[t.id]; if (s) { t.name = s[0] + ' ' + s[1]; t.short = s[1]; } });
+    PLAYERS.forEach((p) => { p.name = fakeName(p.name); });
+  }
   const CUR_SQ = SQUADS.filter((s) => s.era === DATA.CURRENT_ERA).map((s) => s.id);
   const isCurrent = (pid) => PLAYERS[pid].era === DATA.CURRENT_ERA;
   const teamOf = (sq) => DATA.TEAMS[SQUADS[sq].team];
@@ -659,7 +668,7 @@
   }
 
   const API = {
-    DATA, DATA_VERSION, PLAYERS, SQUADS, CUR_SQ, isCurrent, eraTag, POSITIONS, POS_NAME, LINEUP, SLOTS, FIT, SIM, STAGES,
+    DATA, DATA_VERSION, SAFE: !!DATA.SAFE_NAMES, fakeName, PLAYERS, SQUADS, CUR_SQ, isCurrent, eraTag, POSITIONS, POS_NAME, LINEUP, SLOTS, FIT, SIM, STAGES,
     hash, rng, shuffle, fitPenalty, teamProfile, squadTeam, squadStrength, squadName, squadLong, teamOf,
     createDraft, botPick, currentManager, activeSquad, activeTaken, eligible, openSlotsFor, respin, pick,
     playGame, simSeason, verdict, clutchScenario, resolveClutch, pass, wildcard, singleGame, dreamXI, customTeam, gauntletLadder, ageTeam,

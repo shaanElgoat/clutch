@@ -14,7 +14,8 @@ const MQ_BROKERS = ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8
 const MQ_FIRST = ['ABCDEFGHJK', 'MNPQRSTUVW'];
 const MQ_NS = 'clutch-nfl-q7x3/r/';
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-const MAX_ROOM = 4;
+const MAX_ROOM = 8;      // Head-to-Head takes up to 8; a Season draft uses the first 4
+const MAX_SEASON = 4;
 const HOST_GRACE = 6000;   // host missing this long -> the next player takes over
 const COVER_MS = 15000;    // a player gone this long mid-draft gets CPU picks
 const PRUNE_MS = 120000;   // gone this long in the lobby -> their spot is freed
@@ -61,7 +62,7 @@ const Net = {
       const fail = setTimeout(() => { if (first) { first = false; client.end(true); reject(new Error("Can't reach the game server. Check your internet.")); } }, 9000);
       client.on('connect', () => {
         this.setConn(true);
-        client.subscribe([this.t(code, 'state'), this.t(code, 'p/+'), this.t(code, 'm/+')], { qos: 1 });
+        client.subscribe([this.t(code, 'state'), this.t(code, 'p/+'), this.t(code, 'm/+'), this.t(code, 'x/+'), this.t(code, 'c/#')], { qos: 1 });
         client.publish(presT, JSON.stringify({ name, t: Date.now() }), { retain: true, qos: 1 });
         if (first) { first = false; clearTimeout(fail); resolve(); }
       });
@@ -101,9 +102,9 @@ const Net = {
     if (!this.state) { this.stop(); throw new Error('Room not found. Check the code.'); }
     const st = this.state, mine = !!this.recs[this.myId];
     if (!mine) {
-      const inDraft = st.status === 'draft' && st.game && st.game.ids.includes(this.myId);
+      const inDraft = (st.status === 'draft' || st.status === 'h2h') && st.game && st.game.ids.includes(this.myId);
       if (st.status === 'draft' && !inDraft) { this.stop(); throw new Error('That room is mid-draft. Try again after.'); }
-      if (this.list().filter((m) => !m.gone).length >= MAX_ROOM) { this.stop(); throw new Error('That room is full.'); }
+      if (st.status === 'lobby' && this.list().filter((m) => !m.gone).length >= MAX_ROOM) { this.stop(); throw new Error('That room is full.'); }
     }
     this.begin(code);
     this.addMe(name);
@@ -149,6 +150,8 @@ const Net = {
       const id = k.slice(2);
       if (raw) { this.pres[id] = true; delete this.goneSince[id]; } else { delete this.pres[id]; this.goneSince[id] = Date.now(); }
       if (this.active) this.onPresence();
+    } else if (k.startsWith('x/')) { H2H.onXi(k.slice(2), raw);
+    } else if (k.startsWith('c/')) { H2H.onCall(k.slice(2), raw);
     } else if (k.startsWith('m/')) {
       const id = k.slice(2);
       if (raw) { try { this.recs[id] = JSON.parse(raw); } catch (_) { return; } }
@@ -185,6 +188,8 @@ const Net = {
   },
   onState() {
     const st = this.state;
+    if (st.status === 'h2h' && st.game) { if (st.game.ids.includes(this.myId) || App.screen !== 'lobby') H2H.onState(st); return; }
+    if (H2H.game && st.status !== 'h2h') H2H.stop();
     if (st.status === 'draft' && st.game) {
       const me = st.game.ids.indexOf(this.myId);
       if (me < 0) return;
@@ -204,7 +209,9 @@ const Net = {
       if (App.screen === 'lobby' && this.lobbySig() !== this.sig) Lobby();
     }
   },
-  lobbySig() { return JSON.stringify([this.list().map((x) => [x.id, x.name, x.gone]), this.hostId, this.blind]); },
+  lobbySig() { return JSON.stringify([this.list().map((x) => [x.id, x.name, x.gone]), this.hostId, this.blind, this.mode]); },
+  get mode() { return (this.state && this.state.mode) || 'season'; },
+  setMode(m) { if (this.isHost) this.bump({ mode: m }); },
   setConn(ok) {
     this.conn = ok;
     const p = document.getElementById('netPill');
@@ -213,7 +220,14 @@ const Net = {
 
   // ----- game -----
   startGame() {
-    const present = this.list().filter((x) => !x.gone).slice(0, MAX_ROOM);
+    if (this.mode === 'h2h') {
+      const players = this.list().filter((x) => !x.gone).slice(0, H2H_MAX);
+      if (players.length < 2) { toast('Need at least 2 players'); return; }
+      const gid = Date.now().toString(36);
+      this.bump({ status: 'h2h', game: { gid, seed: 'h:' + this.code + ':' + gid, ids: players.map((x) => x.id) } });
+      return;
+    }
+    const present = this.list().filter((x) => !x.gone).slice(0, MAX_SEASON);
     if (present.length < 2) { toast('Need at least 2 players'); return; }
     const seed = 'o:' + this.code + ':' + Date.now().toString(36);
     const dst = TE.createDraft({ seed, blind: this.blind, managers: present.map((x) => ({ name: x.name })) });
@@ -242,7 +256,7 @@ function OnlineScreen() {
   const saved = Store.data.room && Store.data.room.code;
   const el = go(`
     <div class="topbar"><button class="icon-btn" data-act="home">${ICON.back}</button><h2 class="d grow">Play friends</h2></div>
-    <p class="mute" style="margin:0;font-weight:600;line-height:1.5">Draft live against up to 3 friends on their own phones, on any network. Everyone picks from the same spin, so steal the player they need.</p>
+    <p class="mute" style="margin:0;font-weight:600;line-height:1.5">Play friends on their own phones, on any network: a Season steal-draft (2–4), or <b>Head-to-Head</b> (2–8), where you call the plays live against each other.</p>
     ${saved ? `<button class="cont" id="rejoin" style="margin-top:14px"><div class="mc-ic violet">${ico('users', 20)}</div><div class="grow"><b>Rejoin room ${esc(saved)}</b><small>Pick up where you left off</small></div><span class="dl-go">${ico('play', 14)}</span></button>` : ''}
     <div class="section-title">Your name</div>
     <input class="field" id="nm" maxlength="14" placeholder="Your name" value="${esc(Store.data.name)}">
@@ -285,9 +299,12 @@ function Lobby() {
     <div class="two" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px"><button class="btn small" id="copy" style="width:100%">${ico('share', 16)} Copy link</button><button class="btn small" id="shr" style="width:100%">${ico('users', 16)} Invite</button></div>
     <div class="group-title">Players (${here.length}/${MAX_ROOM})</div>
     <div class="group">${mem.map((m, i) => `<div class="lrow" style="cursor:default"><span class="dot" style="background:${MGR_COLORS[i % 4]};width:14px;height:14px"></span><div class="grow"><b>${esc(m.name)}${m.id === Net.myId ? ' (you)' : ''}</b><small>${m.gone ? 'Away' : m.id === Net.hostId ? 'Host' : 'Ready'}</small></div>${m.id === Net.hostId ? '<span class="lmeta hot">Host</span>' : ''}</div>`).join('')}</div>
-    ${Net.isHost ? `<div class="group-title">Rules</div><button class="toggle ${Net.blind ? 'on' : ''}" id="tgBlind"><div class="grow"><h4>Blind draft</h4><p>Hide all ratings for everyone.</p></div><div class="sw"></div></button>` : `<p class="mute center" style="font-weight:600">${Net.blind ? 'Blind draft: ratings hidden.' : 'Classic draft: ratings shown.'}</p>`}
+    <div class="group-title">Game</div>
+    ${Net.isHost ? `<div class="seg two lobby-mode" style="margin-top:0"><button class="${Net.mode === 'season' ? 'on' : ''}" data-mode="season">Season draft</button><button class="${Net.mode === 'h2h' ? 'on' : ''}" data-mode="h2h">Head-to-Head</button></div>` : ''}
+    <div class="mode-blurb">${Net.mode === 'h2h' ? `<b>Head-to-Head</b> · 2–8 players. Everyone drafts at once from the same spins, then you call the plays live against each other. ${here.length > 2 ? `${here.length} players = a tournament bracket${[4, 8].includes(here.length) ? '' : ' (top seeds get byes)'}.` : '2 players = one 1v1 match.'}` : `<b>Season draft</b> · 2–4 players. Steal-draft from the same spins, then watch your seasons play out.${here.length > MAX_SEASON ? ' Only the first 4 play.' : ''}`}</div>
+    ${Net.mode === 'season' ? (Net.isHost ? `<button class="toggle ${Net.blind ? 'on' : ''}" id="tgBlind" style="margin-top:8px"><div class="grow"><h4>Blind draft</h4><p>Hide all ratings for everyone.</p></div><div class="sw"></div></button>` : `<p class="mute center" style="font-weight:600">${Net.blind ? 'Blind draft: ratings hidden.' : 'Classic draft: ratings shown.'}</p>`) : ''}
     <div class="spacer"></div>
-    ${Net.isHost ? `<button class="btn primary big" id="start" ${here.length < 2 ? 'disabled' : ''}>${here.length < 2 ? 'Waiting for friends…' : ico('play', 18) + ' Start draft'}</button>` : '<div class="mute center" style="padding:14px;font-weight:700">Waiting for the host to start…</div>'}
+    ${Net.isHost ? `<button class="btn primary big" id="start" ${here.length < 2 ? 'disabled' : ''}>${here.length < 2 ? 'Waiting for friends…' : ico('play', 18) + (Net.mode === 'h2h' ? (here.length > 2 ? ' Start tournament' : ' Start 1v1') : ' Start draft')}</button>` : '<div class="mute center" style="padding:14px;font-weight:700">Waiting for the host to start…</div>'}
     <p class="mute center" style="font-size:12px;font-weight:600;margin:10px 0 0">You can switch apps or lock your phone. You'll stay in the room.</p>`);
   App.screen = 'lobby';
   tipOnce('lobby');
@@ -296,6 +313,7 @@ function Lobby() {
   $('#shr', el).addEventListener('click', async () => {
     if (navigator.share) { try { await navigator.share({ title: 'CLUTCH', text: `Join my CLUTCH draft. Room ${Net.code}`, url: Net.link() }); } catch (_) {} } else { try { await navigator.clipboard.writeText(Net.link()); toast('Invite link copied'); } catch (_) {} }
   });
+  $$('[data-mode]', el).forEach((b) => b.addEventListener('click', () => Net.setMode(b.dataset.mode)));
   const tb = $('#tgBlind', el);
   if (tb) tb.addEventListener('click', () => { Net.setBlind(!Net.blind); });
   const sb = $('#start', el);

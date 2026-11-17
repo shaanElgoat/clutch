@@ -169,6 +169,10 @@
           ".validate": "newData.val() === now"
         }
       }
+    },
+    "config": {
+      ".read": true,
+      ".write": false
     }
   }
 }

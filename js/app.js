@@ -140,7 +140,7 @@ function Help() {
 function FriendsMenu() {
   modal(`<h2 class="d">Play with friends</h2>
     <div class="steps">
-      <button class="step" data-f="online" style="text-align:left;width:100%"><div class="n violet">${ico('globe', 18)}</div><div><h4>Online room</h4><p>2–4 phones, anywhere. Share a code and steal-draft live from the same spins.</p></div></button>
+      <button class="step" data-f="online" style="text-align:left;width:100%"><div class="n violet">${ico('globe', 18)}</div><div><h4>Online room</h4><p>Up to 8 phones, anywhere. Season steal-draft, or Head-to-Head: 1v1 and tournaments where you call the plays live.</p></div></button>
       <button class="step" data-f="party" style="text-align:left;width:100%"><div class="n pink">${ico('phone', 18)}</div><div><h4>Party (one phone)</h4><p>Pass and play with up to 4 GMs, and add CPU rivals.</p></div></button>
     </div>`, (bg) => {
     $$('[data-f]', bg).forEach((b) => b.addEventListener('click', () => { bg.remove(); b.dataset.f === 'online' ? OnlineScreen() : PartySetup(); }));
@@ -572,7 +572,18 @@ function boot() {
   Account.load();
   start();
 }
+// the name safety switch, controlled from Firebase (config/safeNames). A change applies on the next open.
+function checkSafeNames() {
+  fetch('https://clutch-98557-default-rtdb.firebaseio.com/config/safeNames.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((v) => {
+    if (v === null || v === undefined) return;
+    const want = v === true, have = !!TE.SAFE;
+    if (want === have || SAFE_NAMES_FORCE) return;
+    try { if (want) localStorage.setItem('clutch_safe', '1'); else localStorage.removeItem('clutch_safe'); } catch (_) { return; }
+    setTimeout(() => location.reload(), 300);
+  }).catch(() => {});
+}
 function start() {
+  checkSafeNames();
   Track.start();
   if (location.hash === '#stats' || new URLSearchParams(location.search).has('stats')) { history.replaceState(null, '', location.pathname); StatsDash(); if (window.__ldReady) window.__ldReady(); return; }
   const h = location.hash, q = new URLSearchParams(location.search);

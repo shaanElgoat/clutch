@@ -23,4 +23,5 @@ const STAT_CATS = [
   { id: 'probowl', q: 'Made more Pro Bowls?', unit: 'Pro Bowls', pos: 'OL', list: `
     Tom Brady 15|Peyton Manning 14|Tony Gonzalez 14|Bruce Matthews 14|Merlin Olsen 14|Drew Brees 13|Jerry Rice 13|Reggie White 13|Ray Lewis 13|Randall McDaniel 12|Will Shields 12|Junior Seau 12|Champ Bailey 12|Larry Fitzgerald 11|Jason Witten 11|Bruce Smith 11|Brett Favre 11|Lawrence Taylor 10|Barry Sanders 10|Aaron Donald 10|Joe Thomas 10|Dan Marino 9|John Elway 9|Ed Reed 9|Walter Jones 9|Joe Montana 8|Emmitt Smith 8` },
 ].map((c) => Object.assign(c, { list: c.list.trim().split('|').map((s) => { const m = /^(.*) ([\d.]+)$/.exec(s.trim()); return { name: m[1], v: +m[2] }; }) }));
+if (typeof TE !== 'undefined' && TE.SAFE) STAT_CATS.forEach((c) => c.list.forEach((x) => { x.name = TE.fakeName(x.name); }));
 if (typeof module !== 'undefined') module.exports = { STAT_CATS };

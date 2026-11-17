@@ -17,6 +17,19 @@ const GR_TIERS = [
   { min: 0, packs: ['pro', 'pro'] },
 ];
 const grReward = (ovr) => GR_TIERS.find((t) => ovr >= t.min).packs;
+// you also keep 5% of your net worth as coins: coins + what your cards sell for + unopened packs at shop price
+const GR_KEEP_PCT = 0.05;
+function grNetWorth(d) {
+  const coll = d.coll || {};
+  const cards = Object.keys(coll).reduce((a, id) => {
+    const p = TE.PLAYERS[id]; if (!p) return a;
+    const base = p.r >= 95 ? 220 : p.r >= 90 ? 80 : p.r >= 85 ? 30 : 10; // same as the Sell cards price
+    return a + Math.round(base * (1 + 0.25 * Math.max(0, (coll[id] || 1) - 1)));
+  }, 0);
+  const packs = ((d.obj && d.obj.packs) || []).reduce((a, id) => a + ((PACKS.find((p) => p.id === id) || {}).cost || 0), 0);
+  return Math.max(0, Math.round((d.coins || 0) + cards + packs));
+}
+const grKept = (d) => Math.floor((grNetWorth(d) * GR_KEEP_PCT) / 10) * 10;
 const grPackList = (packs) => {
   const n = {}; packs.forEach((p) => { n[p] = (n[p] || 0) + 1; });
   return Object.entries(n).map(([id, k]) => `${k} ${PACKS.find((p) => p.id === id).name} pack${k > 1 ? 's' : ''}`).join(' + ');
@@ -53,8 +66,10 @@ function greatReset(d) {
   GR_KEEP.forEach((k) => { if (d[k] !== undefined) fresh[k] = d[k]; });
   if (played) {
     const ovr = Math.round(grBestOvr(d) * 10) / 10, packs = grReward(ovr);
+    const worth = grNetWorth(d), kept = grKept(d);
     fresh.obj = { d: {}, w: {}, f: {}, seen: {}, packs: packs.slice() };
-    fresh.gr1 = { at: Date.now(), ovr, packs, show: true };
+    fresh.coins = 600 + kept;
+    fresh.gr1 = { at: Date.now(), ovr, packs, worth, kept, show: true };
   } else fresh.gr1 = { at: Date.now(), packs: [] };
   try { localStorage.setItem(Store.key, JSON.stringify(fresh)); } catch (_) { return false; }
   return true;
@@ -64,11 +79,12 @@ function grNotice() {
   const g = Store.data.gr1;
   if (!g || !g.show) return;
   g.show = false; Store.save();
-  Track.ev('great_reset', `OVR ${g.ovr} → ${grPackList(g.packs)}`);
+  Track.ev('great_reset', `OVR ${g.ovr} → ${grPackList(g.packs)} + ${(g.kept || 0).toLocaleString()} coins`);
   setTimeout(() => modal(`<div class="center"><div class="intro-ic" style="margin:0 auto 10px;background:linear-gradient(135deg,#ff3f7d,#7a5cff)">${ico('refresh', 26)}</div>
     <h2 class="d">The Great Reset</h2>
     <p>Everyone starts fresh today: new binder, new coins, new Rivals climb.</p>
-    <div class="gr-box"><small>Your best team was</small><b>OVR ${Math.round(g.ovr)}</b><small>so you start with</small><b class="gr-packs">${grPackList(g.packs)}</b></div></div>
+    <div class="gr-box"><small>Your best team was</small><b>OVR ${Math.round(g.ovr)}</b><small>so you start with</small><b class="gr-packs">${grPackList(g.packs)}</b>
+      ${g.kept ? `<small style="margin-top:8px">plus 5% of your old net worth (${(g.worth || 0).toLocaleString()})</small><b class="gr-packs">${ico('coin', 16)} +${g.kept.toLocaleString()} coins</b>` : ''}</div></div>
     <button class="btn primary big" id="open" style="width:100%">${ico('pack', 18)} Open my packs</button>`, (bg) => {
     $('#open', bg).addEventListener('click', () => { bg.remove(); App.clubSeg = 'packs'; goTab('club'); });
   }, 'sheet'), 1200);
@@ -79,13 +95,14 @@ function grBanner() {
   const ms = GR_AT - Date.now(), h = Math.floor(ms / 36e5), m = Math.floor(ms / 6e4) % 60;
   const ovr = grBestOvr(Store.data);
   return `<button class="gr-banner" data-act="grinfo"><div class="grow"><b>${ico('refresh', 15)} The Great Reset in ${h ? h + 'h ' : ''}${m}m</b>
-    <small>Everything resets at midnight. Your best team right now: <b>OVR ${ovr ? Math.round(ovr) : '–'}</b>, so you'd start with <b>${grPackList(grReward(ovr))}</b>.</small></div>${ico('chevron', 16)}</button>`;
+    <small>Everything resets at midnight. Your best team right now: <b>OVR ${ovr ? Math.round(ovr) : '–'}</b>, so you'd start with <b>${grPackList(grReward(ovr))}</b> plus <b>${grKept(Store.data).toLocaleString()} coins</b> (5% of your net worth).</small></div>${ico('chevron', 16)}</button>`;
 }
 function grInfo() {
   modal(`<h2 class="d">The Great Reset</h2>
     <p>At <b>midnight tonight</b> everyone starts over: cards, coins, My Club, Rivals, levels and records all reset. A fresh, fair start for everyone.</p>
     <p>Before it happens, we look at the <b>best team you could put on the field</b> from your cards. The better it is, the better your starting packs:</p>
     <div class="gr-tiers">${GR_TIERS.map((t, i) => `<div><span>${i === GR_TIERS.length - 1 ? 'Under 80' : `OVR ${t.min}+`}</span><b>${grPackList(t.packs)}</b></div>`).join('')}</div>
+    <p>You also keep <b>5% of your net worth</b> as coins. Net worth = your coins + what your cards would sell for + unopened packs. Yours right now: <b>${grNetWorth(Store.data).toLocaleString()}</b>, so you'd keep <b>${grKept(Store.data).toLocaleString()} coins</b>.</p>
     <p class="mute" style="font-weight:600;font-size:13px">Tip: tonight is your last chance to open packs and build your best team.</p>
     <button class="btn primary" data-close style="width:100%">Got it</button>`, null, 'sheet');
 }

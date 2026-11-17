@@ -238,6 +238,7 @@ function RivalsHub() {
     <div class="vs"><div class="side"><div class="helmbig">${myTeamHelm()}</div><b>My Club</b><span>OVR ${Math.round(me.ovr)}</span></div><div class="x">VS</div>
       <div class="side"><div class="helmbig">${helmet(oc.c1, oc.c2, true)}</div><b>${esc(opp.name)}</b><span>OVR ${Math.round(opp.prof.ovr)}</span></div></div>
     <button class="btn hot big" id="play">${ico('play', 18)} ${c.match ? 'Finish your match' : 'Play match'}</button>
+    <div class="rv-soon"><div class="rv-soon-ic">${ico('globe', 22)}</div><div class="grow"><b>Online Rivals <span class="soon-tag">COMING SOON</span></b><small>Take your club up against real players' clubs, not just the CPU.</small></div></div>
 
     <div class="group-title">The ladder</div>
     <div class="rv-ladder">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((d) => `<div class="rv-rung ${d === c.div ? 'me' : d > c.div ? 'past' : ''}"><b>${d}</b><span class="grow">${esc(divName(d))}${d === c.div ? ' <em>you</em>' : ''}</span><small>${d === 1 ? 'Top' : winsToPromote(d) + ' wins'}</small><small class="c">${ico('coin', 12)} ${SEASON_COINS[d].toLocaleString()}</small></div>`).join('')}</div>

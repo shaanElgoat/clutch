@@ -1311,3 +1311,10 @@ html, body { overflow-x: clip; }
 .ad-box { display: grid; gap: 10px; justify-items: center; color: #fff; text-align: center; padding: 30px; }
 .ad-box small { opacity: .7; font-weight: 800; letter-spacing: .1em; } .ad-box b { font-size: 64px; } .ad-box span { font-weight: 600; }
 .age-opts { display: grid; gap: 8px; margin-top: 12px; }
+
+/* online rivals teaser */
+.rv-soon { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-top: 12px; border-radius: 18px; border: 2px dashed #c9d3ea; background: linear-gradient(135deg, #f3f6ff, #fff); }
+.rv-soon-ic { width: 42px; height: 42px; flex: none; border-radius: 14px; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, #7a5cff, #2f5ef0); }
+.rv-soon b { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 15px; }
+.rv-soon small { color: var(--ink2); font-weight: 600; font-size: 12.5px; }
+.soon-tag { font-size: 10px; font-weight: 800; letter-spacing: .06em; color: #fff; background: #ff3f7d; padding: 3px 7px; border-radius: 99px; }

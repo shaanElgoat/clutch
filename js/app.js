@@ -533,6 +533,17 @@ const REDEEM_CODES = {
   '1427127477': { pack: 'icon' },
   '1260947202': 1000000,
   '2498658229': 20000000,
+  // daily codes for Nov 17 2026 only ({ from, until } = the days the code works)
+  '2701842040': { coins: 1000, from: '2026-11-17', until: '2026-11-17' },
+  '1696793345': { coins: 2000, from: '2026-11-17', until: '2026-11-17' },
+  '3289484196': { pack: 'std', from: '2026-11-17', until: '2026-11-17' },
+  '1190603615': { coins: 3500, from: '2026-11-17', until: '2026-11-17' },
+  '2070812966': { pack: 'pro', from: '2026-11-17', until: '2026-11-17' },
+  '1373112764': { coins: 6000, from: '2026-11-17', until: '2026-11-17' },
+  '4061391482': { pack: 'leg', from: '2026-11-17', until: '2026-11-17' },
+  '602616242': { coins: 12000, from: '2026-11-17', until: '2026-11-17' },
+  '3455368192': { coins: 18000, from: '2026-11-17', until: '2026-11-17' },
+  '3941637315': { pack: 'icon', from: '2026-11-17', until: '2026-11-17' },
 };
 function redeemCode(raw) {
   const code = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -543,6 +554,7 @@ function redeemCode(raw) {
   const prize = REDEEM_CODES[key];
   if (!prize) return { ok: false, msg: "That code isn't valid." };
   if (prize.from && todayKey() < prize.from) return { ok: false, msg: "That code isn't live yet. Try again tomorrow!" };
+  if (prize.until && todayKey() > prize.until) return { ok: false, msg: 'That code has expired.' };
   d.redeemed.push(key);
   Track.ev('code', code);
   const pk = prize.pack ? PACKS.find((p) => p.id === prize.pack) : null;

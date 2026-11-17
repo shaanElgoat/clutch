@@ -223,7 +223,9 @@ function seasonProgress(r, flags) {
   if (r.perfect) unlock('perfect');
   if (r.champion && flags && flags.blind) unlock('blind_ring');
   const poW = r.timeline.filter((e) => e.comp === 'P' && e.res === 'W').length;
-  addXP(50 + r.w * 4 + poW * 25 + (r.champion ? 200 : 0) + (r.perfectReg ? 150 : 0) + (r.perfect ? 300 : 0));
+  const xp = 50 + r.w * 4 + poW * 25 + (r.champion ? 200 : 0) + (r.perfectReg ? 150 : 0) + (r.perfect ? 300 : 0);
+  addXP(xp);
+  r.coinsEarned = Math.round(xp * 0.6);
 }
 
 function playoffPath(r) {
@@ -262,6 +264,18 @@ function SeasonResults(r, opts) {
     ${standingsTable(r)}`);
   $$('[data-a]', el).forEach((b) => b.addEventListener('click', () => opts.actions[+b.dataset.a].fn()));
   if (r.champion) later(() => { confetti(); Sfx.trophy(); }, 300);
+  // ads: offer to double the season's coins, and a short ad at this natural break
+  if (Ads.on() && r.coinsEarned && !r.doubled) {
+    const v = $('.verdict', el);
+    v.insertAdjacentHTML('afterend', `<button class="free-pack ad-entry" id="addbl"><div class="fp-ic">${ico('play', 26)}</div><div class="grow"><b>Watch an ad: double your coins</b><small>+${r.coinsEarned.toLocaleString()} more coins</small></div><span class="chip on">Watch</span></button>`);
+    $('#addbl', el).addEventListener('click', async (e) => {
+      const b = e.currentTarget;
+      if (r.doubled || !(await Ads.rewarded('double_coins'))) return;
+      r.doubled = true; Store.data.coins += r.coinsEarned; Store.save();
+      Sfx.coin(); toast(`+${r.coinsEarned.toLocaleString()} coins`); b.remove();
+    });
+  }
+  if (opts.adBreak !== false) Ads.between('season');
   return el;
 }
 

@@ -1302,3 +1302,12 @@ html, body { overflow-x: clip; }
 .inv-big { width: 58px; height: 58px; border-radius: 18px; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, #34d399, #10b981); }
 .inv-code { font-size: 34px; font-weight: 800; letter-spacing: .18em; padding: 8px 18px; border-radius: 16px; background: #fff; border: 2px dashed #10b981; margin: 8px 0; }
 .inv-count { color: var(--mute); font-weight: 800; font-size: 12px; }
+
+/* ads */
+.ad-entry { background: linear-gradient(135deg, #fff7e6, #fff); border-color: #ffd89a; }
+.ad-entry .fp-ic { background: linear-gradient(135deg, #ffb020, #ff6a1a); }
+.ad-respin { background: #fff4e0 !important; color: #c25400 !important; }
+.ad-fake { position: fixed; inset: 0; z-index: 200; background: rgba(11,16,32,.92); display: grid; place-items: center; }
+.ad-box { display: grid; gap: 10px; justify-items: center; color: #fff; text-align: center; padding: 30px; }
+.ad-box small { opacity: .7; font-weight: 800; letter-spacing: .1em; } .ad-box b { font-size: 64px; } .ad-box span { font-weight: 600; }
+.age-opts { display: grid; gap: 8px; margin-top: 12px; }

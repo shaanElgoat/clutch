@@ -189,6 +189,7 @@ function GamedayGame(xi, opp, diff, opts) {
     const r = GD.result(g);
     Store.data.stats.gdPlayed++; if (r.win) Store.data.stats.gdWins++; Store.save();
     Obj.hit('gameday'); if (r.win) Obj.hit('gdwin');
+    Ads.between('gameday');
     addXP(60 + (r.win ? 100 : 0) + (r.win && diff === 'Legend' ? 100 : 0));
     if (r.win) { unlock('gd_win'); if (diff === 'Legend') unlock('gd_top'); }
     if (r.us >= 40) unlock('gd_40');

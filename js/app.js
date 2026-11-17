@@ -385,7 +385,7 @@ function Profile() {
       <button class="toggle ${d.haptics ? 'on' : ''}" data-tg="haptics"><span class="ic">${ico('phone', 20)}</span><div class="grow"><h4>Vibration</h4></div><div class="sw"></div></button>
       <button class="toggle ${d.fastSpin ? 'on' : ''}" data-tg="fastSpin"><span class="ic">${ico('bolt', 20)}</span><div class="grow"><h4>Fast spins</h4><p>Shorter wheel animation</p></div><div class="sw"></div></button>
     </div>
-    <div class="actions"><button class="btn primary" data-act="invite">${ico('gift', 18)} Invite friends · 2 free Pro packs</button><button class="btn" data-act="updates">${ico('sparkle', 18)} What's new</button><button class="btn" data-act="tour">Replay the tutorial</button><button class="btn" id="tipsAgain">Show tips again</button><button class="btn" data-act="help">How to play</button><button class="btn" id="reset" style="color:var(--red)">Reset all progress</button></div>`, 'has-tabs');
+    <div class="actions"><button class="btn primary" data-act="invite">${ico('gift', 18)} Invite friends · 2 free Pro packs</button><button class="btn" data-act="updates">${ico('sparkle', 18)} What's new</button><button class="btn" data-act="tour">Replay the tutorial</button><button class="btn" id="tipsAgain">Show tips again</button><button class="btn" data-act="help">How to play</button><a class="btn" href="privacy.html" target="_blank" rel="noopener">Privacy policy</a><button class="btn" id="reset" style="color:var(--red)">Reset all progress</button></div>`, 'has-tabs');
   tabbar('me');
   const ta = $('#tipsAgain', el); if (ta) ta.addEventListener('click', () => { Store.data.tips = {}; Store.save(); toast('Tips will show again'); });
   const rb = $('#rbtn', el), ri = $('#rcode', el);
@@ -592,6 +592,7 @@ function start() {
   checkUpdates();
   grNotice();
   inviteOnOpen();
+  adsAgeCheck();
   if (window.__ldReady) window.__ldReady();
   if (Store.data.resetNotice) { Store.data.resetNotice = false; Store.save(); later(resetNotice, 1300); }
 }

@@ -104,8 +104,10 @@ function renderSpinBox() {
     <div class="spin-txt"><div class="club">${esc(team.short)}</div><div class="era">${esc(team.name.slice(0, team.name.length - team.short.length).trim())} · ${era}${st.privateSquad !== null ? ' · <span style="color:var(--violet)">free spin</span>' : ''}</div></div>
     ${st.replace && mine ? '<button class="respin" id="keep" style="background:var(--mint-soft);color:var(--mint)">Keep team</button>' : ''}
     ${g.cfg.wildcard && mine && !st.replace && !st.multi && !m.wild ? `<button class="respin wildbtn" id="wild" title="Play a card from your binder">${ico('sparkle', 15)} Wild</button>` : ''}
-    ${!st.multi ? `<button class="respin" id="respin" title="Re-spin" ${m.respins > 0 && !g.spinning ? '' : 'disabled'}>${ICON.dice} ${m.respins}</button>` : ''}
+    ${!st.multi && m.respins <= 0 && mine && Ads.on() && !st.adRespin && !g.online ? `<button class="respin ad-respin" id="adrespin" title="Watch an ad for a re-spin">${ico('play', 14)} +1</button>` : !st.multi ? `<button class="respin" id="respin" title="Re-spin" ${m.respins > 0 && !g.spinning ? '' : 'disabled'}>${ICON.dice} ${m.respins}</button>` : ''}
     ${g.cfg.shotClock && mine ? '<div class="shotclock"><i id="clockBar"></i></div>' : ''}`;
+  const ar = $('#adrespin', box);
+  if (ar) ar.addEventListener('click', async () => { if (!canAct()) return; if (await Ads.rewarded('respin')) { st.adRespin = true; m.respins++; toast('+1 re-spin'); draftUpdate(); } });
   const rb = $('#respin', box);
   if (rb) rb.addEventListener('click', () => { if (canAct() && TE.respin(st)) { g.sel = null; stopClock(); buzz(10); draftUpdate(); } });
   const wb = $('#wild', box);

@@ -382,6 +382,7 @@ function Packs() {
   const el = go(`
     ${clubSeg('packs')}
     ${freePackReady() ? `<button class="free-pack" id="free"><div class="fp-ic">${ico('coin', 28)}</div><div class="grow"><b>Daily coins: +${DAILY_COINS}</b><small>Free coins every day. Spend them on packs.</small></div><span class="chip on">Claim</span></button>` : ''}
+    ${Ads.on() && Ads.packsLeft() ? `<button class="free-pack ad-entry" id="adpack"><div class="fp-ic">${ico('play', 26)}</div><div class="grow"><b>Watch an ad: free Standard pack</b><small>${Ads.packsLeft()} left today</small></div><span class="chip on">Watch</span></button>` : ''}
     ${Obj.data().packs.length ? `<div class="group-title">Your packs</div><div class="owned-packs">${Obj.data().packs.map((id, k) => { const p = PACKS.find((x) => x.id === id); return p ? `<button class="owned" data-own="${k}"><div class="pack-art" style="background:${p.grad}"><div class="pa-shine"></div><span>CLUTCH</span><b>${p.name}</b></div><small>Open</small></button>` : ''; }).join('')}</div><div class="group-title">Buy packs</div>` : ''}
     <div class="packs">${PACKS.map((p, i) => `<div class="packcard"><div class="pack-art" style="background:${p.grad}"><div class="pa-shine"></div><span>CLUTCH</span><b>${p.name}</b></div>
       <div class="pk-info"><b>${p.name} pack</b><small>${p.blurb}</small><button class="btn ${d.coins >= p.cost ? 'primary' : ''} small" data-pack="${i}" ${d.coins >= p.cost ? '' : 'disabled'}>${ico('coin', 16)} ${p.cost.toLocaleString()}</button></div></div>`).join('')}</div>
@@ -389,6 +390,7 @@ function Packs() {
     <button class="free-pack ti-entry" data-act="tradein"><div class="fp-ic">${ico('dice', 26)}</div><div class="grow"><b>Trade-In</b><small>Swap 5 spare cards for a mystery pack. Feeling lucky?</small></div><span class="chip on">Try it</span></button>
     <p class="mute center" style="font-weight:600;font-size:12.5px;margin:14px 8px 0;line-height:1.5">Packs are the only way to get cards. Your cards build My Club, level up with duplicates, and can be played as Wildcards.</p>`, 'has-tabs');
   tabbar('club');
+  const ap = $('#adpack', el); if (ap) ap.addEventListener('click', () => Ads.freePack(Packs));
   const fp = $('#free', el);
   if (fp) fp.addEventListener('click', () => { d.freePack = dayKey(); d.coins += DAILY_COINS; Store.save(); Sfx.coin(); toast(`+${DAILY_COINS} coins`); Packs(); });
   $$('[data-own]', el).forEach((b) => b.addEventListener('click', () => {

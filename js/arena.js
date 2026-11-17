@@ -67,6 +67,7 @@ function DuelHub(d) {
 }
 function DuelEnd(d) {
   Runs.clear('duel');
+  Ads.between('duel');
   const [w, l] = duelScore(d), won = w > l;
   const s = Store.data.stats;
   if (won) {

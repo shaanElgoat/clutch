@@ -7,6 +7,7 @@ const UPDATES = [
     'New Head-to-Head mode in Play with friends.',
     'You call the plays. Your friend calls the defense.',
     '2 players = 1v1. 3 to 8 players = a tournament.',
+    'Quick games: about 25 snaps, and big plays every drive.',
   ] },
   { id: 9, date: '2026-11-16', icon: 'refresh', title: 'The Great Reset', items: [
     'Everyone starts fresh at midnight.',

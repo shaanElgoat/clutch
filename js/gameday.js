@@ -71,7 +71,7 @@
     g.clock -= secs * scale;
     if (g.clock <= 0) {
       if (g.quarter < 4 || (g.quarter === 4 && g.score.us === g.score.them)) {
-        g.quarter++; g.clock = g.quarter === 5 ? 600 : 900;
+        g.quarter++; g.clock = g.quarter === 5 ? (g.otlen || 600) : (g.qlen || 900);
         if (g.quarter === 5) g.ot = true;
         if (g.quarter === 3) return 'half';
         if (g.quarter === 5) return 'ot';
@@ -130,7 +130,7 @@
         g.score[side] += 7; ev.result = 'TOUCHDOWN'; ev.td = true;
         g.stats[side].td[ev.who] = (g.stats[side].td[ev.who] || 0) + 1;
         if (g.ot) g.over = true;
-        changePoss(g, other, 30);
+        changePoss(g, other, g.kickTo || 30);
       } else if (g.ball <= 0) {
         g.score[other] += 2; ev.result = 'SAFETY'; changePoss(g, other, 35);
       } else {
@@ -141,8 +141,8 @@
       }
     }
     const t = tick(g, ev.clockUse);
-    if (t === 'half') { changePoss(g, g.halfRecv || 'them', 25); ev.half = true; }
-    if (t === 'ot') { ev.otStart = true; changePoss(g, rand(g) < 0.5 ? 'us' : 'them', 25); }
+    if (t === 'half') { changePoss(g, g.halfRecv || 'them', g.kickTo || 25); ev.half = true; }
+    if (t === 'ot') { ev.otStart = true; changePoss(g, rand(g) < 0.5 ? 'us' : 'them', g.kickTo || 25); }
     ev.score = { us: g.score.us, them: g.score.them };
     ev.ballAfter = g.ball; ev.possAfter = g.poss; ev.down = g.down; ev.togo = g.togo; ev.quarter = g.quarter; ev.clock = g.clock; ev.ot = g.ot;
     g.events.push(ev);
@@ -161,12 +161,12 @@
     } else {
       const dist = 100 - g.ball + 17;
       ev.dist = dist; ev.who = R.K.name;
-      if (rand(g) < fgProb(R, dist)) { g.score[side] += 3; ev.result = 'FIELD GOAL'; ev.good = true; if (g.ot) g.over = true; changePoss(g, other, 30); }
+      if (rand(g) < fgProb(R, dist)) { g.score[side] += 3; ev.result = 'FIELD GOAL'; ev.good = true; if (g.ot) g.over = true; changePoss(g, other, g.kickTo || 30); }
       else { ev.result = 'NO GOOD'; changePoss(g, other, 100 - Math.max(g.ball, 20)); }
     }
     const t = tick(g, ev.clockUse);
-    if (t === 'half') { changePoss(g, g.halfRecv || 'them', 25); ev.half = true; }
-    if (t === 'ot') { ev.otStart = true; changePoss(g, rand(g) < 0.5 ? 'us' : 'them', 25); }
+    if (t === 'half') { changePoss(g, g.halfRecv || 'them', g.kickTo || 25); ev.half = true; }
+    if (t === 'ot') { ev.otStart = true; changePoss(g, rand(g) < 0.5 ? 'us' : 'them', g.kickTo || 25); }
     ev.score = { us: g.score.us, them: g.score.them };
     ev.ballAfter = g.ball; ev.possAfter = g.poss; ev.down = g.down; ev.togo = g.togo; ev.quarter = g.quarter; ev.clock = g.clock; ev.ot = g.ot;
     g.events.push(ev);
@@ -246,11 +246,13 @@
   }
   function afterUs(g) { if (g.quarter > 4 && !g.ot) g.over = true; endCheck(g); }
   function endCheck(g) {
-    if (g.over) return;
-    if (g.quarter > 4 && !g.ot) g.over = true;
-    if (g.ot && (g.score.us !== g.score.them)) g.over = true;
-    if (g.quarter > 5) g.over = true; // OT ran out: tie stands -> settle below
-    if (g.over && g.score.us === g.score.them) { if (rand(g) < 0.5) g.score.us += 3; else g.score.them += 3; }
+    if (!g.over) {
+      if (g.quarter > 4 && !g.ot) g.over = true;
+      if (g.ot && (g.score.us !== g.score.them)) g.over = true;
+      if (g.quarter > 5) g.over = true;
+    }
+    // a game never ends tied: overtime running out (even when the clock itself ended the game) is settled by a field goal
+    if (g.over && g.score.us === g.score.them && !g.settled) { g.settled = true; if (rand(g) < 0.5) g.score.us += 3; else g.score.them += 3; }
   }
   // the user picks a defence; the opponent's whole drive is simulated
   function callDefense(g, id) {
@@ -293,7 +295,8 @@
   // ---------- head-to-head: two humans ----------
   // 'us' = player A, 'them' = player B. Every snap the side with the ball calls a play and the other side
   // a defence (or a kick on 4th down). Deterministic: seed + the list of calls => the same game everywhere.
-  function pvpCreate(a, b, seed) { const g = create(a, b, seed); g.halfRecv = 'them'; return g; }
+  // head-to-head games are short and punchy: 7-minute quarters (about 30 snaps), 5-minute overtime
+  function pvpCreate(a, b, seed) { const g = create(a, b, seed); g.halfRecv = 'them'; g.qlen = 300; g.otlen = 240; g.clock = 300; g.kickTo = 35; g.yMul = 1.5; return g; }
   function pvpOffense(g) {
     const side = g.poss, O = g[side].R;
     const opts = Object.keys(PLAYS).map((id) => ({ id, name: PLAYS[id].name, sub: PLAYS[id].keys.map((k) => O[k].name).filter((v, i, x) => x.indexOf(v) === i).join(' + ') }));
@@ -309,7 +312,14 @@
     if (g.over) return null;
     const side = g.poss;
     g.calls.push(off + '/' + def);
-    const ev = off === 'fg' || off === 'punt' ? kick(g, side, off) : apply(g, snap(g, side, PLAYS[off] ? off : 'run', DEFS[def] ? def : 'zone'));
+    let ev;
+    if (off === 'fg' || off === 'punt') ev = kick(g, side, off);
+    else {
+      ev = snap(g, side, PLAYS[off] ? off : 'run', DEFS[def] ? def : 'zone');
+      // head-to-head is the arcade version: gains go further, so every snap can swing the game
+      if (g.yMul && ev.yards > 0) ev.yards = Math.round(ev.yards * g.yMul);
+      ev = apply(g, ev);
+    }
     endCheck(g);
     return ev;
   }

@@ -1,354 +1,226 @@
 'use strict';
-// HEAD-TO-HEAD (online rooms, 2-8 friends). Everyone drafts at the same time from the same spins, then
-// it's live play-by-play: the side with the ball calls a play, the other side calls a defence, at the
-// same time, on their own phones. 2 players = one match; 3-8 = a bracket (top seeds get byes).
+// HEAD-TO-HEAD: SPIN RACE (online rooms, 2-8 friends).
+// Everyone sees the same spin at the same moment and races to tap the best player on that team:
+// the first tap gets him. One player each per spin until everyone's 12 spots are full. Then the teams
+// play fast live games: 2 players = one game, 3-8 = a bracket (top seeds get byes).
 //
-// Over MQTT (see net.js), next to the room state:
-//   CODE/x/ID                      retained {gid, xi, name}: a finished draft
-//   CODE/c/GID/MATCH/SNAP/ID       retained {c}: one player's call for one snap
-// Every phone replays the same calls through the same deterministic engine (GD.pvpStep), so everyone
-// sees the same game and the same bracket with no referee. If someone doesn't call in time, any phone
-// posts the same stand-in call for them (GD.pvpAuto), so a game never freezes.
-const H2H_PICK_MS = 12000;   // your clock to call a snap
-const H2H_COVER_MS = 16000;  // after this, the other phone calls for you
+// The host's phone is the referee (it sees taps in the order they arrive, so "first tap wins" is the
+// same for everyone). Over MQTT, next to the room state (net.js):
+//   CODE/k/GID/SPIN/ID    a player's tap {pid}          -> only the host reads these
+//   CODE/state            room state; during a race state.game holds the spin, the picks and the teams
+// If the host leaves, the next player becomes host and carries on from the state.
+const RACE_MS = 8000;      // time to grab a player each spin
+const RACE_GAP = 1100;     // pause between spins so everyone sees who got who
+const RACE_MAX_SPINS = 24; // safety stop if someone can't fill a spot
+const ROUND_MS = 16000;    // how long each round's live games run before results post
 const H2H_MAX = 8;
+
 const H2H = {
-  game: null, xi: {}, calls: {}, seen: {}, tick: null, view: null, rewarded: {}, leftMid: null,
-  // ---- room messages ----
-  onXi(id, raw) {
-    if (!raw) { delete this.xi[id]; return; }
-    let m; try { m = JSON.parse(raw); } catch (_) { return; }
-    this.xi[id] = m;
-    this.refresh();
-  },
-  onCall(path, raw) {
-    const [gid, mid, idx, id] = path.split('/');
-    if (!raw || !id) return;
-    let m; try { m = JSON.parse(raw); } catch (_) { return; }
-    const C = (((this.calls[gid] = this.calls[gid] || {})[mid] = this.calls[gid][mid] || {})[idx] = this.calls[gid][mid][idx] || {});
-    if (C[id]) return; // first call for a snap wins
-    C[id] = m.c;
-    this.refresh();
-  },
+  game: null, tick: null, mine: null, lastSpin: -1, spinSeen: 0, shownRound: -1, rewarded: {},
+  // ---------- state from the host ----------
   onState(st) {
     const g = st.game;
-    if (!this.game || this.game.gid !== g.gid) { this.game = g; this.seen = {}; this.rewarded = {}; this.view = null; this.leftMid = null; }
-    else this.game = g;
-    if (!this.tick) this.tick = setInterval(() => this.housekeep(), 1000);
+    if (!this.game || this.game.gid !== g.gid) { this.lastSpin = -1; this.shownRound = -1; this.rewarded = {}; this.mine = null; }
+    this.game = g;
     Net.inGame = true;
-    const me = Net.myId, mine = this.xi[me] && this.xi[me].gid === g.gid;
-    if (g.ids.includes(me) && !mine && !(App.g && App.g.cfg && App.g.cfg.mode === 'h2h')) return this.draft();
-    this.refresh(true);
+    if (!this.tick) this.tick = setInterval(() => this.loop(), 250);
+    this.render();
   },
   stop() { if (this.tick) { clearInterval(this.tick); this.tick = null; } this.game = null; },
-  // ---- the draft ----
-  draft() {
+  name(id) { return (Net.recs[id] && Net.recs[id].name) || 'Player'; },
+  ovr(id) { const xi = this.game.xi[id] || []; return xi.some((x) => x !== null) ? TE.teamProfile(xi).ovr : 0; },
+  filled(id) { return (this.game.xi[id] || []).filter((x) => x !== null).length; },
+  // can this player still use pid? (an open spot he fits, and not the same person twice)
+  fits(id, pid) { return TE.eligible(pid, { xi: this.game.xi[id] }, [], false); },
+  // ---------- the host runs the race ----------
+  onClaim(path, raw) {
+    if (!Net.isHost || !raw || !this.game || this.game.phase !== 'race') return;
+    const [gid, spin, id] = path.split('/');
     const g = this.game;
-    openDraft({ mode: 'h2h', seed: g.seed + ':draft', managers: [{ name: Net.name || myName() }], respins: 1, title: 'Head-to-Head draft',
-      onDone: (st) => { Net.pub('x/' + Net.myId, { gid: g.gid, xi: st.managers[0].xi, name: Net.name || myName() }, true); this.xi[Net.myId] = { gid: g.gid, xi: st.managers[0].xi, name: Net.name }; this.view = null; this.refresh(true); } });
+    if (gid !== g.gid || +spin !== g.spin || !g.ids.includes(id) || g.got[id] !== undefined || g.spinEnd) return;
+    let m; try { m = JSON.parse(raw); } catch (_) { return; }
+    const pid = +m.pid;
+    if (!TE.SQUADS[g.sq].players.includes(pid) || Object.values(g.got).includes(pid) || !this.fits(id, pid)) return;
+    this.assign(g, id, pid);
+    Net.bump({ game: g });
   },
-  drafted() { const g = this.game; return g.ids.filter((id) => this.xi[id] && this.xi[id].gid === g.gid); },
-  name(id) { return (this.xi[id] && this.xi[id].name) || (Net.recs[id] && Net.recs[id].name) || 'Player'; },
-  team(id) { const xi = this.xi[id].xi; return { name: this.name(id), xi, prof: TE.teamProfile(xi) }; },
-  // ---- the bracket (worked out the same way on every phone) ----
-  bracket() {
+  assign(g, id, pid) {
+    const slot = TE.openSlotsFor(pid, g.xi[id], false)[0].slot;
+    g.xi[id] = g.xi[id].slice(); g.xi[id][slot] = pid; g.got[id] = pid;
+  },
+  // the host's clock: time out slow players, start the next spin, run the rounds
+  hostLoop() {
+    const g = this.game; if (!g) return;
+    const now = Date.now();
+    if (g.phase === 'race') {
+      const taken = () => Object.values(g.got);
+      const waiting = g.ids.filter((id) => g.got[id] === undefined && this.filled(id) < TE.SLOTS && TE.SQUADS[g.sq].players.some((p) => !taken().includes(p) && this.fits(id, p)));
+      if (!g.spinEnd) {
+        if (waiting.length && now - g.spinAt <= RACE_MS) return;
+        // too slow: the best player left who fits goes to you
+        waiting.forEach((id) => {
+          const left = TE.SQUADS[g.sq].players.filter((p) => !taken().includes(p) && this.fits(id, p));
+          const best = left.sort((a, b) => TE.PLAYERS[b].r - TE.PLAYERS[a].r)[0];
+          if (best !== undefined) this.assign(g, id, best);
+        });
+        g.spinEnd = now; Net.bump({ game: g }); return;
+      }
+      if (now - g.spinEnd < RACE_GAP) return;
+      if (g.ids.every((id) => this.filled(id) >= TE.SLOTS) || g.spin + 1 >= RACE_MAX_SPINS) {
+        Net.bump({ game: Object.assign(g, { phase: 'games', round: 0, roundAt: now, got: {} }) }); return;
+      }
+      this.nextSpin(g, now); Net.bump({ game: g });
+    } else if (g.phase === 'games' && !g.done && now - g.roundAt > ROUND_MS) {
+      const B = this.bracket();
+      if (g.round < B.roundsCount - 1) Net.bump({ game: Object.assign(g, { round: g.round + 1, roundAt: now }) });
+      else Net.bump({ game: Object.assign(g, { done: true }) });
+    }
+  },
+  nextSpin(g, now) {
+    const r = TE.rng(g.seed + ':spin:' + (g.spin + 1));
+    // a team nobody has seen yet this race, with someone that people who still need players could use
+    const pool = TE.CUR_SQ.filter((q) => !g.used.includes(q));
+    const useful = pool.filter((q) => g.ids.some((id) => this.filled(id) < TE.SLOTS && TE.SQUADS[q].players.some((p) => this.fits(id, p))));
+    const list = useful.length ? useful : pool.length ? pool : TE.CUR_SQ;
+    const sq = list[Math.floor(r() * list.length)];
+    Object.assign(g, { spin: g.spin + 1, sq, spinAt: now, spinEnd: 0, got: {}, used: g.used.concat(sq) });
+  },
+  // ---------- everyone ----------
+  loop() {
+    if (!this.game || !Net.active || !Net.state || Net.state.status !== 'h2h') return;
+    if (Net.isHost) this.hostLoop();
+    const t = document.getElementById('rcT');
+    if (t && this.game.phase === 'race') {
+      const left = this.game.spinEnd ? 0 : Math.max(0, 1 - (Date.now() - this.spinSeen) / RACE_MS);
+      t.style.width = left * 100 + '%'; t.classList.toggle('low', left < 0.35);
+      const s = document.getElementById('rcS'); if (s) s.textContent = this.game.spinEnd ? '✓' : Math.ceil(left * RACE_MS / 1000) + 's';
+    }
+  },
+  claim(pid) {
     const g = this.game;
-    const ids = g.ids.slice();
+    if (!g || g.phase !== 'race' || g.got[Net.myId] !== undefined || this.mine !== null || g.spinEnd) return;
+    this.mine = pid;
+    Net.pub(`k/${g.gid}/${g.spin}/${Net.myId}`, { pid }, false);
+    if (Net.isHost) this.onClaim(`${g.gid}/${g.spin}/${Net.myId}`, JSON.stringify({ pid }));
+    this.render();
+  },
+  render() {
+    const g = this.game; if (!g) return;
+    if (g.phase === 'race') return this.raceScreen();
+    return this.gamesScreen();
+  },
+  // ---------- the race screen (built once per spin, then just updated) ----------
+  raceScreen() {
+    const g = this.game, me = Net.myId, playing = g.ids.includes(me);
+    if (this.lastSpin !== g.spin || !document.getElementById('rcG')) {
+      if (this.lastSpin !== g.spin) { this.spinSeen = Date.now(); this.mine = null; }
+      this.lastSpin = g.spin;
+      const team = TE.teamOf(g.sq);
+      const el = go(`<div class="topbar"><button class="icon-btn" id="lv">${ICON.back}</button><div class="grow"><h2 class="d">Spin Race</h2><div class="mute" style="font-weight:700;font-size:12px">Spin ${g.spin + 1} · first tap gets him</div></div>${netPill()}</div>
+        <div class="rc-board" id="rcB"></div>
+        <div class="rc-spin">${crest(team, 46)}<div class="grow"><b>${esc(team.short)}</b><small>${esc(TE.squadLong(g.sq))}</small></div><span class="rc-sec" id="rcS">8s</span></div>
+        <div class="rc-timer"><i id="rcT"></i></div>
+        <!-- listed by position (QB, RB, WR…), not by rating, so you have to know who's good -->
+        <div class="rc-grid" id="rcG">${TE.SQUADS[g.sq].players.map((pid) => `<button class="rc-card" data-p="${pid}">${pcard(pid, {})}<span class="rc-tag"></span></button>`).join('')}</div>
+        <div id="rcM"></div>`);
+      App.screen = 'h2h-race';
+      $('#lv', el).addEventListener('click', h2hLeave);
+      el.addEventListener('click', (e) => { const b = e.target.closest('[data-p]'); if (b && !b.disabled) { Sfx.select(); this.claim(+b.dataset.p); } });
+      Sfx.whistle();
+    }
+    // who's got who
+    const owner = {}; Object.entries(g.got).forEach(([id, pid]) => { owner[pid] = id; });
+    const iGot = g.got[me];
+    $$('#rcG [data-p]').forEach((b) => {
+      const pid = +b.dataset.p, who = owner[pid], tag = $('.rc-tag', b);
+      const noFit = playing && iGot === undefined && who === undefined && !this.fits(me, pid);
+      b.classList.toggle('taken', who !== undefined && who !== me);
+      b.classList.toggle('mine', who === me);
+      b.classList.toggle('pending', this.mine === pid && who === undefined);
+      b.classList.toggle('nofit', noFit);
+      b.disabled = !playing || who !== undefined || iGot !== undefined || noFit || this.mine !== null || !!g.spinEnd;
+      tag.textContent = who === me ? 'YOURS' : who !== undefined ? this.name(who) : noFit ? 'No spot' : this.mine === pid ? 'Grabbing…' : '';
+    });
+    // beaten to it? pick again, fast
+    if (this.mine !== null && this.mine !== -1 && owner[this.mine] !== undefined && owner[this.mine] !== me) {
+      toast(`Too slow! ${this.name(owner[this.mine])} got him`); Sfx.bad(); buzz([40, 30, 40]); this.mine = null; return this.raceScreen();
+    }
+    if (iGot !== undefined && this.mine !== -1) { if (this.mine === iGot) { Sfx.good(); buzz(20); } this.mine = -1; }
+    // the live standings
+    const B = $('#rcB');
+    if (B) B.innerHTML = g.ids.map((id) => `<div class="rc-p ${id === me ? 'me' : ''} ${g.got[id] !== undefined ? 'done' : ''}"><b>${esc(this.name(id))}${id === me ? ' (you)' : ''}</b><span>OVR ${this.ovr(id) ? this.ovr(id).toFixed(1) : '–'} · ${this.filled(id)}/12</span>${g.got[id] !== undefined ? `<em>${esc(shortName(TE.PLAYERS[g.got[id]].name))}</em>` : '<em class="w">picking…</em>'}</div>`).join('');
+    const M = $('#rcM');
+    if (M && playing) M.innerHTML = `<div class="section-title">Your team · ${this.filled(me)}/12</div>${miniField(g.xi[me])}`;
+  },
+  // ---------- the games ----------
+  bracket() {
+    const g = this.game, ids = g.ids.slice();
     const size = ids.length <= 2 ? 2 : ids.length <= 4 ? 4 : 8;
-    const order = TE.shuffle(TE.rng(g.seed + ':seeds'), ids);
+    // the best draft gets the top seed (and the bye, if there is one)
+    const order = ids.slice().sort((a, b) => this.ovr(b) - this.ovr(a) || (a < b ? -1 : 1));
     const POS = { 2: [0, 1], 4: [0, 3, 1, 2], 8: [0, 7, 3, 4, 1, 6, 2, 5] }[size];
-    const rounds = [POS.map((s) => (order[s] === undefined ? null : order[s]))];
+    let slots = POS.map((s) => (order[s] === undefined ? null : order[s]));
     const matches = [];
     for (let r = 0; (1 << r) < size; r++) {
-      const slots = rounds[r], next = [];
+      const next = [];
       for (let m = 0; m < slots.length / 2; m++) {
         const a = slots[2 * m], b = slots[2 * m + 1], id = 'r' + r + 'm' + m;
-        const M = { id, r, m, a, b, winner: undefined };
+        const M = { id, r, a, b };
         if (a === undefined || b === undefined) M.state = 'tbd';
         else if (a === null || b === null) { M.state = 'bye'; M.winner = a === null ? b : a; }
-        else { const s = this.play(M); M.game = s; M.state = s.g.over ? 'done' : 'live'; if (s.g.over) M.winner = s.g.score.us > s.g.score.them ? a : b; }
-        matches.push(M); next.push(M.winner);
+        else {
+          M.res = TE.singleGame({ name: this.name(a), xi: g.xi[a] }, { name: this.name(b), xi: g.xi[b], prof: TE.teamProfile(g.xi[b]) }, g.seed + ':' + id).result;
+          M.winner = M.res.win ? a : b;
+          M.state = g.round > r || g.done ? 'done' : g.round === r ? 'live' : 'tbd';
+        }
+        next.push(M.state === 'bye' || M.state === 'done' ? M.winner : undefined);
+        matches.push(M);
       }
-      rounds.push(next);
+      slots = next;
     }
-    const final = matches[matches.length - 1];
-    return { size, rounds, matches, champ: final.winner, roundsCount: Math.log2(size) };
+    return { size, matches, roundsCount: Math.log2(size), champ: g.done ? matches[matches.length - 1].winner : undefined };
   },
-  // replay a match from its calls
-  play(M) {
-    const g = this.game, calls = ((this.calls[g.gid] || {})[M.id]) || {};
-    const gm = GD.pvpCreate(this.team(M.a), this.team(M.b), g.seed + ':' + M.id);
-    const evs = []; let idx = 0;
-    while (!gm.over && idx < 500) {
-      const off = gm.poss === 'us' ? M.a : M.b, def = gm.poss === 'us' ? M.b : M.a, c = calls[idx];
-      if (!c || !c[off] || !c[def]) break;
-      evs.push(GD.pvpStep(gm, c[off], c[def])); idx++;
-    }
-    const off = gm.poss === 'us' ? M.a : M.b, def = gm.poss === 'us' ? M.b : M.a;
-    return { g: gm, idx, evs, off, def, calls: calls[idx] || {} };
-  },
-  myMatch(B) { return B.matches.find((M) => M.state === 'live' && (M.a === Net.myId || M.b === Net.myId)); },
-  // ---- calls ----
-  call(M, idx, who, c) {
-    const g = this.game, C = ((this.calls[g.gid] || {})[M.id] || {})[idx] || {};
-    if (C[who]) return;
-    Net.pub(`c/${g.gid}/${M.id}/${idx}/${who}`, { c }, true);
-    this.onCall(`${g.gid}/${M.id}/${idx}/${who}`, JSON.stringify({ c }));
-  },
-  // every second: stand-in calls for anyone who ran out of time
-  housekeep() {
-    if (!this.game || !Net.active || !Net.state || Net.state.status !== 'h2h') return;
-    if (this.drafted().length < this.game.ids.length) return;
-    const B = this.bracket(), now = Date.now(), me = Net.myId;
-    B.matches.filter((M) => M.state === 'live').forEach((M) => {
-      const s = M.game, key = M.id + ':' + s.idx;
-      const first = this.seen[key] || (this.seen[key] = now);
-      [['off', s.off], ['def', s.def]].forEach(([role, who]) => {
-        if (s.calls[who]) return;
-        const mine = who === me, mePlaying = M.a === me || M.b === me;
-        // gone from the room (app closed)? cover them fast; still here but slow? give them time
-        const late = now - first > (mine ? H2H_PICK_MS : !Net.here(who) ? 5000 : H2H_COVER_MS);
-        // you cover yourself, your opponent covers you, and the host covers games where both left
-        if (late && (mine || mePlaying || (Net.isHost && !Net.here(M.a) && !Net.here(M.b)))) this.call(M, s.idx, who, GD.pvpAuto(this.game.seed + ':' + M.id, s.idx * 2 + (role === 'def' ? 1 : 0), s.g, role));
-      });
-    });
-    if (this.view && this.view.mid) this.timerBar(B);
-  },
-  // ---- screens ----
-  refresh(force) {
-    if (!this.game || !Net.active) return;
-    if (App.g && App.g.cfg && App.g.cfg.mode === 'h2h' && !App.g.st.done) return; // still drafting
-    if (this.drafted().length < this.game.ids.length) { if (force || App.screen === 'h2h-wait') this.waitScreen(); return; }
-    const B = this.bracket();
-    // jump into your own match when it goes live
-    const mm = this.myMatch(B);
-    if (mm && (!this.view || this.view.mid !== mm.id) && mm.id !== this.leftMid) this.view = { mid: mm.id };
-    if (this.view && this.view.mid) { const M = B.matches.find((x) => x.id === this.view.mid); if (M) return this.matchScreen(B, M); }
-    this.hub(B);
-  },
-  waitScreen() {
-    const g = this.game, done = this.drafted();
-    const el = go(`<div class="topbar"><button class="icon-btn" id="lv">${ICON.back}</button><h2 class="d grow">Head-to-Head</h2>${netPill()}</div>
-      <div class="hh-wait"><div class="hh-spin">${ico('timer', 28)}</div><b>Waiting for everyone to finish drafting</b><small>${done.length}/${g.ids.length} done</small></div>
-      <div class="group">${g.ids.map((id) => `<div class="lrow" style="cursor:default"><div class="grow"><b>${esc(this.name(id))}${id === Net.myId ? ' (you)' : ''}</b><small>${done.includes(id) ? 'Team locked in' : Net.here(id) ? 'Drafting…' : 'Away'}</small></div>${done.includes(id) ? `<span class="lmeta hot">${ico('check', 12)}</span>` : ''}</div>`).join('')}</div>
-      ${Net.isHost && done.length >= 2 && done.length < g.ids.length ? `<button class="btn" id="go" style="width:100%;margin-top:12px">Start without the others (${done.length} players)</button>` : ''}`);
-    App.screen = 'h2h-wait';
-    $('#lv', el).addEventListener('click', h2hLeave);
-    const b = $('#go', el); if (b) b.addEventListener('click', () => Net.bump({ game: Object.assign({}, g, { ids: done }) }));
-  },
-  hub(B) {
-    const g = this.game, me = Net.myId;
-    const champ = B.champ;
+  gamesScreen() {
+    const g = this.game, me = Net.myId, B = this.bracket();
+    const key = g.round + ':' + !!g.done;
+    if (this.shownRound === key) return;
+    this.shownRound = key;
     const rn = (r) => (r === B.roundsCount - 1 ? 'Final' : r === B.roundsCount - 2 ? 'Semifinals' : 'Quarterfinals');
-    const mRow = (M) => {
-      const nm = (id) => (id === null ? '<i class="mute">Bye</i>' : id === undefined ? '<i class="mute">TBD</i>' : esc(this.name(id)) + (id === me ? ' <small>(you)</small>' : ''));
-      const sc = M.game ? [M.game.g.score.us, M.game.g.score.them] : ['', ''];
-      const win = (id) => M.winner !== undefined && M.winner === id && M.state !== 'bye';
-      return `<button class="hh-match ${M.state}" data-m="${M.id}" ${M.state === 'live' || M.state === 'done' ? '' : 'disabled'}>
-        <div class="${win(M.a) ? 'w' : ''}"><span>${nm(M.a)}</span><b>${sc[0]}</b></div>
-        <div class="${win(M.b) ? 'w' : ''}"><span>${nm(M.b)}</span><b>${sc[1]}</b></div>
-        <small>${M.state === 'live' ? `${ico('play', 11)} LIVE · Q${Math.min(4, M.game.g.quarter)} ${GD.fmtClock(M.game.g.clock)}` : M.state === 'done' ? 'Final' : M.state === 'bye' ? 'Bye' : 'Waiting'}</small></button>`;
+    const live = B.matches.filter((M) => M.state === 'live');
+    const myM = live.find((M) => M.a === me || M.b === me) || null, show = g.done ? null : myM || live[0];
+    const nm = (id) => (id === null ? '<i class="mute">Bye</i>' : id === undefined ? '<i class="mute">TBD</i>' : esc(this.name(id)) + (id === me ? ' <small>(you)</small>' : ''));
+    const row = (M) => {
+      const done = M.state === 'done', sc = M.res && done ? [M.res.us, M.res.them] : ['', ''];
+      return `<div class="hh-match ${M.state}"><div class="${done && M.winner === M.a ? 'w' : ''}"><span>${nm(M.a)}</span><b>${sc[0]}</b></div><div class="${done && M.winner === M.b ? 'w' : ''}"><span>${nm(M.b)}</span><b>${sc[1]}</b></div><small>${M.state === 'live' ? `${ico('play', 11)} LIVE` : done ? 'Final' : M.state === 'bye' ? 'Bye' : 'Waiting'}</small></div>`;
     };
-    const el = go(`<div class="topbar"><button class="icon-btn" id="lv">${ICON.back}</button><h2 class="d grow">${B.size === 2 ? '1v1 match' : 'Tournament'}</h2>${netPill()}</div>
-      ${champ !== undefined ? `<div class="hh-champ">${TROPHY_SVG}<b>${champ === me ? 'You win the tournament!' : esc(this.name(champ)) + ' wins!'}</b></div>` : ''}
-      ${B.size === 2 ? '' : `<p class="mute" style="font-weight:600;margin:0 0 10px">${g.ids.length} players · ${B.size - g.ids.length ? `${B.size - g.ids.length} bye${B.size - g.ids.length > 1 ? 's' : ''} for the top seeds · ` : ''}tap a live game to watch</p>`}
-      <div class="hh-bracket">${Array.from({ length: B.roundsCount }, (_, r) => `<div class="hh-round"><div class="hh-rt">${rn(r)}</div>${B.matches.filter((M) => M.r === r).map(mRow).join('')}</div>`).join('')}</div>
-      ${champ !== undefined ? (Net.isHost ? '<button class="btn primary big" id="again" style="width:100%;margin-top:14px">Back to the room</button>' : '<p class="mute center" style="font-weight:700;margin-top:14px">Waiting for the host…</p>') : ''}`);
-    App.screen = 'h2h-hub';
+    const el = go(`<div class="topbar"><button class="icon-btn" id="lv">${ICON.back}</button><h2 class="d grow">${B.size === 2 ? 'The game' : g.done ? 'Tournament' : rn(g.round)}</h2>${netPill()}</div>
+      ${B.champ !== undefined ? `<div class="hh-champ">${TROPHY_SVG}<b>${B.champ === me ? (B.size === 2 ? 'You win!' : 'You win the tournament!') : esc(this.name(B.champ)) + ' wins!'}</b></div>` : ''}
+      ${show ? `<div class="live solo" id="rcLive"></div><p class="mute center" style="font-weight:700;margin:6px 0 0">${show === myM ? 'Your game' : 'Watching'}: ${esc(this.name(show.a))} vs ${esc(this.name(show.b))}</p>` : ''}
+      ${B.size > 2 ? `<div class="hh-bracket" style="margin-top:14px">${Array.from({ length: B.roundsCount }, (_, r) => `<div class="hh-round"><div class="hh-rt">${rn(r)}</div>${B.matches.filter((M) => M.r === r).map(row).join('')}</div>`).join('')}</div>` : B.champ !== undefined ? row(B.matches[0]) : ''}
+      ${g.done ? (Net.isHost ? '<button class="btn primary big" id="again" style="width:100%;margin-top:14px">Back to the room</button>' : '<p class="mute center" style="font-weight:700;margin-top:14px">Waiting for the host…</p>') : ''}`);
+    App.screen = 'h2h-games';
     $('#lv', el).addEventListener('click', h2hLeave);
-    $$('[data-m]', el).forEach((b) => b.addEventListener('click', () => { this.leftMid = null; this.view = { mid: b.dataset.m }; this.refresh(); }));
-    const a = $('#again', el); if (a) a.addEventListener('click', () => Net.backToLobby());
-    if (champ !== undefined && !this.rewarded.champ) { this.rewarded.champ = true; if (champ === me) { addXP(B.size === 2 ? 100 : 250); unlock('mp_win'); Store.data.stats.mpWins++; Store.save(); confetti(); Sfx.trophy(); } Track.ev('h2h_done', `${g.ids.length} players`); }
-  },
-  // The match screen is built ONCE and then only its parts change (score, ball, banner, buttons),
-  // so nothing flashes or jumps between snaps.
-  matchScreen(B, M) {
-    let root = document.getElementById('hhRoot');
-    if (!root || root.dataset.mid !== M.id) root = this.mountMatch(B, M);
-    this.updateMatch(B, M, root);
-  },
-  mountMatch(B, M) {
-    const me = Net.myId, playing = M.a === me || M.b === me;
-    const L = M.b === me ? M.b : M.a, R = L === M.a ? M.b : M.a;
-    const el = go(`<div class="topbar"><button class="icon-btn" id="bk">${ICON.back}</button><h2 class="d grow">${playing ? 'Your match' : 'Watching'}</h2>${netPill()}</div>
-      <div id="hhRoot" class="hh-live" data-mid="${M.id}" data-idx="-1">
-        <div class="hh-score">
-          <div class="hh-side l" id="hhL"><small>${esc(this.name(L))}${L === me ? ' (you)' : ''}</small><b>0</b><i class="hh-pos"></i></div>
-          <div class="hh-clock" id="hhClk">Q1<small>7:00</small></div>
-          <div class="hh-side r" id="hhR"><small>${esc(this.name(R))}${R === me ? ' (you)' : ''}</small><b>0</b><i class="hh-pos"></i></div>
-        </div>
-        <div class="hh-field" id="hhField"><div class="hh-ez l"></div><div class="hh-ez r"></div>
-          ${[10, 20, 30, 40, 50, 60, 70, 80, 90].map((y) => `<i class="hh-yl" style="left:${8 + y * 0.84}%"></i>`).join('')}
-          <i class="hh-fd" id="hhFd"></i><i class="hh-ball" id="hhBall">${FOOTBALL}</i></div>
-        <div class="hh-dd" id="hhDd"></div>
-        <div class="hh-banner" id="hhBan"><b>Kickoff!</b><small></small></div>
-      </div>
-      <div class="hh-oppline" id="hhOpp"></div>
-      <div id="hhCtl"></div>
-      <div class="hh-tend" id="hhTend"></div>
-      <div class="hh-log" id="hhLog"></div>`);
-    App.screen = 'h2h-match';
-    const back = () => { this.leftMid = M.id; this.view = null; this.refresh(); };
-    $('#bk', el).addEventListener('click', back);
-    el.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-c]');
-      if (b && !b.disabled) { Sfx.select(); b.classList.add('picked'); this.call(M, +b.dataset.idx, Net.myId, b.dataset.c); }
-      if (e.target.closest('#hb')) back();
-    });
-    return $('#hhRoot', el);
-  },
-  updateMatch(B, M, root) {
-    const me = Net.myId, s = M.game, gm = s.g, playing = M.a === me || M.b === me;
-    const L = M.b === me ? M.b : M.a, R = L === M.a ? M.b : M.a, opp = playing ? (me === M.a ? M.b : M.a) : null;
-    const sc = (id) => (id === M.a ? gm.score.us : gm.score.them);
-    const sideOf = (id) => (id === M.a ? 'us' : 'them');
-    const idOf = (side) => (side === 'us' ? M.a : M.b);
-    // scoreboard
-    [['#hhL', L], ['#hhR', R]].forEach(([sel, id]) => {
-      const box = $(sel), b = $('b', box), v = String(sc(id));
-      if (b.textContent !== v) { b.textContent = v; box.classList.remove('bump'); void box.offsetWidth; box.classList.add('bump'); }
-      box.classList.toggle('has', !gm.over && gm.poss === sideOf(id));
-    });
-    $('#hhClk').innerHTML = gm.over ? 'FINAL' : `${gm.ot ? 'OT' : 'Q' + Math.min(4, gm.quarter)}<small>${GD.fmtClock(gm.clock)}</small>`;
-    // the field, always drawn from the left team's end zone
-    const ballL = gm.poss === sideOf(L) ? gm.ball : 100 - gm.ball;
-    const fdL = gm.poss === sideOf(L) ? Math.min(100, gm.ball + gm.togo) : 100 - Math.min(100, gm.ball + gm.togo);
-    const X = (y) => `${8 + Math.max(0, Math.min(100, y)) * 0.84}%`;
-    $('#hhBall').style.left = X(ballL); $('#hhFd').style.left = X(fdL);
-    $('#hhField').classList.toggle('off', gm.over);
-    const dn = ['1st', '2nd', '3rd', '4th'][gm.down - 1] || '4th';
-    $('#hhDd').innerHTML = gm.over ? '' : `<b>${dn} & ${gm.togo >= 100 - gm.ball ? 'Goal' : gm.togo}</b><span>${esc(this.name(s.off))} ball · ${gm.ball === 50 ? 'midfield' : gm.ball < 50 ? 'own ' + gm.ball : 'opp ' + (100 - gm.ball)}</span>`;
-    // a new snap happened: the big result banner, with both calls revealed
-    const prev = +root.dataset.idx;
-    if (s.idx !== prev) {
-      root.dataset.idx = s.idx;
-      const ev = s.evs[s.evs.length - 1];
-      if (ev && prev >= 0) {
-        const offId = idOf(ev.side), defId = offId === M.a ? M.b : M.a, c = ((this.calls[this.game.gid] || {})[M.id] || {})[s.idx - 1] || {};
-        const t = h2hBanner(ev), mine = playing && offId === me, theirs = playing && offId !== me;
-        const good = t.kind === 'good' ? (mine ? 'good' : theirs ? 'bad' : 'neutral') : t.kind === 'bad' ? (mine ? 'bad' : theirs ? 'good' : 'neutral') : t.kind;
-        const ban = $('#hhBan');
-        ban.className = 'hh-banner ' + good;
-        // the mind game: did someone call the perfect counter?
-        const oc = c[offId], dc = c[defId];
-        // (only when the result backs it up: a read that still gave up a first down isn't a read)
-        const stopped = t.kind === 'bad' || (ev.kind === 'gain' && ev.yards < 4), gashed = ev.td || ev.first || ev.yards >= 12;
-        const read = H2H_COUNTER[dc] && H2H_COUNTER[dc].includes(oc) && stopped ? `🧠 ${this.name(defId)} read it!` : H2H_BEATS[oc] && H2H_BEATS[oc].includes(dc) && gashed ? `🎯 ${this.name(offId)} called it perfectly!` : '';
-        // hot streak: first downs or scores in a row by the same team
-        let streak = 0;
-        for (let k = s.evs.length - 1; k >= 0 && s.evs[k].side === ev.side && (s.evs[k].first || s.evs[k].td || (s.evs[k].yards >= 10 && s.evs[k].kind === 'gain')); k--) streak++;
-        ban.innerHTML = `<b>${esc(t.big)}</b>${read ? `<em class="hh-read">${esc(read)}</em>` : ''}${streak >= 3 && !ev.td ? `<em class="hh-fire">🔥 ${esc(this.name(offId))} is on fire · ${streak} in a row</em>` : ''}<small>${esc(this.name(offId))}: ${esc(callName(oc))} · ${esc(this.name(defId))}: ${esc(callName(dc))}</small>`;
-        void ban.offsetWidth; ban.classList.add('pop');
-        // big moments shake the screen or light up the field
-        const live = $('#hhRoot');
-        live.classList.remove('shake', 'tdflash'); void live.offsetWidth;
-        if (ev.td || ev.good) live.classList.add('tdflash');
-        else if (ev.kind === 'int' || ev.kind === 'fumble' || ev.kind === 'sack' || ev.result === 'TURNOVER ON DOWNS') live.classList.add('shake');
-        // clutch time: the 2-minute warning, halftime and overtime get their own moment
-        const late = gm.quarter >= 4 && !gm.over && gm.clock <= 120 && Math.abs(gm.score.us - gm.score.them) <= 8;
-        if (late && root.dataset.clutch !== '1') { root.dataset.clutch = '1'; setTimeout(() => this.moment('⏱ 2:00 left', 'CLUTCH TIME', 'clutch'), 1100); }
-        if (ev.half) setTimeout(() => this.moment('Halftime', `${this.name(M.a)} ${gm.score.us} – ${gm.score.them} ${this.name(M.b)}`, 'half'), 1100);
-        if (ev.otStart) setTimeout(() => this.moment('Overtime', 'Next score wins!', 'clutch'), 1100);
-        live.classList.toggle('clutch', late || gm.ot);
-        if (ev.td) { Sfx.crowd(true); if (offId === me) { confetti(1200); buzz([40, 50, 40]); } }
-        else if (ev.good) Sfx.good();
-        else if (ev.kind === 'int' || ev.kind === 'fumble' || ev.result === 'TURNOVER ON DOWNS') { Sfx.hit(); buzz(40); }
-        else if (ev.kind === 'sack') Sfx.hit();
-        else if (ev.first) Sfx.good();
-        else Sfx.tap();
-        root.dataset.hold = Date.now() + 1100; // a beat to read the result before the next call
-        // recent plays
-        $('#hhLog').innerHTML = s.evs.slice(-4).reverse().map((e) => `<div><i class="${idOf(e.side) === me ? 'me' : ''}"></i>${esc(h2hLine(e, this.name(idOf(e.side))))}</div>`).join('');
-      } else if (prev < 0) $('#hhBan').innerHTML = `<b>Kickoff!</b><small>${esc(this.name(s.off))} gets the ball first</small>`;
+    const ag = $('#again', el); if (ag) ag.addEventListener('click', () => Net.backToLobby());
+    if (show) {
+      // watch from your own side (or the first team's side if it's not your game)
+      const flip = show.b === me, A = flip ? show.b : show.a, Bb = flip ? show.a : show.b;
+      const plays = flip ? show.res.plays.map((p) => Object.assign({}, p, { s: 1 - p.s })) : show.res.plays;
+      const left = Math.max(1500, ROUND_MS - 2500 - (Date.now() - g.roundAt));
+      liveCard($('#rcLive', el), { opp: this.name(Bb), oppXI: g.xi[Bb], badge: B.size === 2 ? 'Spin Race' : 'Spin Race · ' + rn(g.round), po: true, big: true, plays, ot: show.res.ot, key: show.id },
+        { myXI: g.xi[A], myName: this.name(A), seed: g.seed + ':' + show.id, speed: 7000 / left }, () => {
+          if (show === myM && !this.rewarded[show.id]) { this.rewarded[show.id] = true; const won = show.winner === me; addXP(won ? 80 : 30); Track.ev('h2h_match', won ? 'won' : 'lost'); if (won) { Sfx.crowd(true); confetti(900); } else Sfx.groan(); }
+        });
     }
-    // what your opponent likes to call in this spot
-    if (playing && !gm.over) {
-      const want = s.off === me ? 'def' : 'off', C = (this.calls[this.game.gid] || {})[M.id] || {}, seen = [];
-      s.evs.forEach((e, i) => { const oppOff = idOf(e.side) === opp; if ((want === 'off') === oppOff && C[i] && C[i][opp]) seen.push(C[i][opp]); });
-      $('#hhTend').innerHTML = seen.length ? `<span>${esc(this.name(opp))}'s last ${want === 'off' ? 'plays' : 'defenses'}:</span>${seen.slice(-4).map((c) => `<b>${esc(callName(c))}</b>`).join('')}` : '';
-    } else $('#hhTend').innerHTML = '';
-    // the controls
-    const ctl = $('#hhCtl'), myCall = playing ? s.calls[me] : null, role = !playing || gm.over ? null : s.off === me ? 'off' : 'def';
-    const key = [gm.over, role, s.idx, !!myCall].join(':');
-    if (ctl.dataset.key !== key) {
-      ctl.dataset.key = key;
-      if (gm.over) {
-        const w = sc(M.a) > sc(M.b) ? M.a : M.b;
-        ctl.innerHTML = `<div class="outcome ${!playing ? '' : w === me ? 'win' : 'loss'}" style="margin-top:12px"><h2>${w === me ? 'You win!' : esc(this.name(w)) + ' wins'}</h2><p>${Math.max(sc(M.a), sc(M.b))}–${Math.min(sc(M.a), sc(M.b))}${gm.ot ? ' in overtime' : ''}</p></div><button class="btn primary big" id="hb" style="width:100%;margin-top:10px">${B.size === 2 ? 'See result' : 'Back to the bracket'}</button>`;
-        if (playing && !this.rewarded[M.id]) { this.rewarded[M.id] = true; const won = w === me; addXP(won ? 80 : 30); if (won) { confetti(); Sfx.trophy(); } else Sfx.groan(); Track.ev('h2h_match', won ? 'won' : 'lost'); }
-      } else if (!role) ctl.innerHTML = `<p class="mute center" style="font-weight:700;margin-top:14px">${esc(this.name(s.off))} has the ball</p>`;
-      else if (myCall) ctl.innerHTML = `<div class="hh-locked">${ico('check', 18)} You called <b>${esc(callName(myCall))}</b></div>`;
-      else {
-        const opts = role === 'off' ? GD.pvpOffense(gm) : GD.pvpDefense();
-        const hold = Math.max(0, (+root.dataset.hold || 0) - Date.now());
-        ctl.innerHTML = `<div class="hh-role ${role}">${role === 'off' ? 'Your ball · call a play' : 'Their ball · call a defense'}</div><div class="hh-timer"><i id="hht"></i></div>
-          <div class="hh-opts">${opts.map((o) => `<button class="hh-opt ${role}" data-c="${o.id}" data-idx="${s.idx}" ${hold ? 'disabled' : ''}><b>${esc(o.name)}</b><small class="hh-hint">${esc(H2H_HINT[o.id] || o.sub || '')}</small>${role === 'off' && GD.PLAYS[o.id] ? `<small>${esc(o.sub)}</small>` : ''}</button>`).join('')}</div>`;
-        if (hold) setTimeout(() => $$('#hhCtl [data-c]').forEach((b) => { b.disabled = false; }), hold);
-      }
+    if (B.champ !== undefined && !this.rewarded.champ) {
+      this.rewarded.champ = true;
+      if (B.champ === me) { addXP(B.size === 2 ? 100 : 250); unlock('mp_win'); Store.data.stats.mpWins++; Store.save(); confetti(); Sfx.trophy(); }
+      Track.ev('h2h_done', `${g.ids.length} players`);
     }
-    // is the other player done picking?
-    $('#hhOpp').innerHTML = playing && !gm.over ? (s.calls[opp] ? `<span class="ok">${ico('check', 13)} ${esc(this.name(opp))} has called</span>` : `<span>${esc(this.name(opp))} is thinking…</span>`) : '';
-    this.timerBar();
-  },
-  // a full-width splash for the big moments
-  moment(big, small, cls) {
-    const m = document.createElement('div');
-    m.className = 'hh-moment ' + (cls || '');
-    m.innerHTML = `<b>${esc(big)}</b><span>${esc(small)}</span>`;
-    document.body.appendChild(m);
-    if (cls === 'clutch') { Sfx.heartbeat(); buzz([60, 80, 60]); } else Sfx.whistle();
-    setTimeout(() => m.classList.add('out'), 1500);
-    setTimeout(() => m.remove(), 1900);
-  },
-  timerBar() {
-    const t = document.getElementById('hht'); if (!t || !this.view || !this.view.mid) return;
-    const key = Object.keys(this.seen).filter((k) => k.startsWith(this.view.mid + ':')).sort((a, b) => +b.split(':')[1] - +a.split(':')[1])[0];
-    const left = key ? Math.max(0, 1 - (Date.now() - this.seen[key]) / H2H_PICK_MS) : 1;
-    t.style.width = (left * 100) + '%'; t.classList.toggle('low', left < 0.3);
-    if (left > 0 && left < 0.3 && document.querySelector('#hhCtl [data-c]')) Sfx.tick();
   },
 };
-// what each call is good and bad against (so it's a mind game, not a guess)
-const H2H_HINT = {
-  run: 'Beats Blitz · stuffed by Run stop', short: 'Beats Blitz · weak vs Zone', deep: 'Beats Run stop · picked off vs Zone', pa: 'Beats Run stop · sacked vs Blitz',
-  blitz: 'Stops Play-action · beaten by quick throws', zone: 'Stops deep & quick passes · weak vs Run', man: 'Solid against everything', runstop: 'Stops the Run · burned by Deep & Play-action',
-  fg: '', punt: 'Pin them deep',
-};
-// which defense shuts down which play, and which play beats which defense
-const H2H_COUNTER = { runstop: ['run'], zone: ['short', 'deep'], blitz: ['pa'] };
-const H2H_BEATS = { run: ['blitz'], short: ['blitz'], deep: ['runstop'], pa: ['runstop'] };
-const callName = (c) => (!c ? '…' : GD.PLAYS[c] ? GD.PLAYS[c].name : GD.DEFS[c] ? GD.DEFS[c].name : c === 'fg' ? 'Field goal' : c === 'punt' ? 'Punt' : c);
-function h2hBanner(ev) {
-  const y = ev.yards;
-  if (ev.td) return { big: 'TOUCHDOWN!', kind: 'good' };
-  if (ev.result === 'SAFETY') return { big: 'SAFETY!', kind: 'bad' };
-  if (ev.kind === 'fg') return ev.good ? { big: 'FIELD GOAL!', kind: 'good' } : { big: 'NO GOOD!', kind: 'bad' };
-  if (ev.kind === 'punt') return { big: `PUNT · ${y} YDS`, kind: 'neutral' };
-  if (ev.kind === 'int') return { big: 'INTERCEPTED!', kind: 'bad' };
-  if (ev.kind === 'fumble') return { big: 'FUMBLE!', kind: 'bad' };
-  if (ev.result === 'TURNOVER ON DOWNS') return { big: 'STOPPED ON 4TH!', kind: 'bad' };
-  if (ev.kind === 'sack') return { big: `SACKED! ${y}`, kind: 'bad' };
-  if (ev.kind === 'inc') return { big: 'INCOMPLETE', kind: 'bad' };
-  if (y >= 20) return { big: `+${y} YDS! BIG PLAY`, kind: 'good' };
-  if (y <= 0) return { big: `${y} YDS`, kind: 'bad' };
-  return { big: `+${y} YDS${ev.first ? ' · 1ST DOWN' : ''}`, kind: 'good' };
-}
-function h2hLine(ev, who) {
-  const y = ev.yards;
-  if (ev.kind === 'punt') return `${who} punt ${y} yards.`;
-  if (ev.kind === 'fg') return ev.good ? `Field goal is good! (${ev.dist} yds)` : `Field goal no good from ${ev.dist}.`;
-  if (ev.kind === 'int') return 'INTERCEPTED!';
-  if (ev.kind === 'fumble') return 'FUMBLE! Turnover.';
-  if (ev.kind === 'sack') return `Sacked for ${y}.`;
-  if (ev.kind === 'inc') return 'Incomplete pass.';
-  if (ev.result === 'SAFETY') return 'Safety!';
-  if (ev.td) return `TOUCHDOWN ${who}! (${y} yds)`;
-  if (ev.result === 'TURNOVER ON DOWNS') return 'Turnover on downs!';
-  return `${ev.play === 'run' ? 'Run' : 'Catch'} for ${y}${ev.first ? ', first down!' : '.'}`;
-}
 const netPill = () => `<span class="pill net-pill ${Net.conn === false ? 'bad' : ''}" id="netPill">${ico('globe', 14)}<span>${Net.conn === false ? ' Reconnecting…' : ' Live'}</span></span>`;
 function h2hLeave() {
-  modal(`<h2 class="d">Leave the game?</h2><p>Your games will be auto-played if you go.</p><div class="actions two"><button class="btn" data-close>Stay</button><button class="btn hot" id="ok">Leave</button></div>`, (bg) => {
+  modal(`<h2 class="d">Leave the game?</h2><p>If you go, the rest of your picks are made for you.</p><div class="actions two"><button class="btn" data-close>Stay</button><button class="btn hot" id="ok">Leave</button></div>`, (bg) => {
     $('#ok', bg).addEventListener('click', () => { bg.remove(); H2H.stop(); Net.leave(); goTab('play'); });
   });
 }

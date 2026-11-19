@@ -1404,3 +1404,24 @@ html, body { overflow-x: clip; }
 .hh-moment.clutch b { color: #ff8fb0; } .hh-moment.half b { color: #ffd75a; }
 .hh-moment.out { opacity: 0; transform: scale(1.06); transition: opacity .35s, transform .35s; }
 @keyframes hhIn { from { opacity: 0; transform: scaleY(.3); } }
+
+/* spin race */
+.rc-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 6px; margin-bottom: 10px; }
+.rc-p { padding: 8px 10px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); display: grid; gap: 1px; transition: background .2s, border-color .2s; }
+.rc-p b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .rc-p span { font-size: 11.5px; font-weight: 700; color: var(--mute); }
+.rc-p em { font-style: normal; font-size: 12px; font-weight: 800; color: var(--mint); } .rc-p em.w { color: var(--mute); font-weight: 700; }
+.rc-p.me { border-color: #2f5ef0; box-shadow: 0 0 0 2px rgba(47,94,240,.15); } .rc-p.done { background: #effbf5; }
+.rc-spin { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 20px; background: linear-gradient(135deg, #0f1631, #1d2a5c); color: #fff; animation: rcIn .45s cubic-bezier(.2,1.3,.4,1); }
+@keyframes rcIn { from { transform: rotateX(80deg) scale(.9); opacity: 0; } }
+.rc-spin b { display: block; font-size: 20px; } .rc-spin small { opacity: .75; font-weight: 700; font-size: 12px; }
+.rc-sec { font-size: 22px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.rc-timer { height: 8px; border-radius: 99px; background: #e6eaf3; overflow: hidden; margin: 8px 0 10px; } .rc-timer i { display: block; height: 100%; width: 100%; background: #2f5ef0; transition: width .25s linear; } .rc-timer i.low { background: #e11d48; }
+.rc-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.rc-card { position: relative; padding: 0; border-radius: 12px; transition: transform .1s, opacity .2s; } .rc-card .pcard { width: 100%; }
+.rc-card:active { transform: scale(.94); }
+.rc-tag { position: absolute; left: 4px; right: 4px; bottom: 4px; padding: 3px 4px; border-radius: 8px; font-size: 10.5px; font-weight: 800; color: #fff; background: rgba(11,16,32,.8); opacity: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rc-card.taken { opacity: .35; } .rc-card.taken .rc-tag { opacity: 1; background: #e11d48; }
+.rc-card.mine { outline: 3px solid #10b981; outline-offset: 2px; } .rc-card.mine .rc-tag { opacity: 1; background: #10b981; }
+.rc-card.nofit { opacity: .3; filter: grayscale(.8); } .rc-card.nofit .rc-tag { opacity: 1; }
+.rc-card.pending { outline: 3px solid #ffb020; outline-offset: 2px; animation: hhPulse .6s ease-in-out infinite; } .rc-card.pending .rc-tag { opacity: 1; background: #ff8a1a; }
+.rc-card:disabled { cursor: default; }

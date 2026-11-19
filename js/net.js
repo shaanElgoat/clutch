@@ -62,7 +62,7 @@ const Net = {
       const fail = setTimeout(() => { if (first) { first = false; client.end(true); reject(new Error("Can't reach the game server. Check your internet.")); } }, 9000);
       client.on('connect', () => {
         this.setConn(true);
-        client.subscribe([this.t(code, 'state'), this.t(code, 'p/+'), this.t(code, 'm/+'), this.t(code, 'x/+'), this.t(code, 'c/#')], { qos: 1 });
+        client.subscribe([this.t(code, 'state'), this.t(code, 'p/+'), this.t(code, 'm/+'), this.t(code, 'k/#')], { qos: 1 });
         client.publish(presT, JSON.stringify({ name, t: Date.now() }), { retain: true, qos: 1 });
         if (first) { first = false; clearTimeout(fail); resolve(); }
       });
@@ -150,8 +150,7 @@ const Net = {
       const id = k.slice(2);
       if (raw) { this.pres[id] = true; delete this.goneSince[id]; } else { delete this.pres[id]; this.goneSince[id] = Date.now(); }
       if (this.active) this.onPresence();
-    } else if (k.startsWith('x/')) { H2H.onXi(k.slice(2), raw);
-    } else if (k.startsWith('c/')) { H2H.onCall(k.slice(2), raw);
+    } else if (k.startsWith('k/')) { H2H.onClaim(k.slice(2), raw);
     } else if (k.startsWith('m/')) {
       const id = k.slice(2);
       if (raw) { try { this.recs[id] = JSON.parse(raw); } catch (_) { return; } }
@@ -223,8 +222,11 @@ const Net = {
     if (this.mode === 'h2h') {
       const players = this.list().filter((x) => !x.gone).slice(0, H2H_MAX);
       if (players.length < 2) { toast('Need at least 2 players'); return; }
-      const gid = Date.now().toString(36);
-      this.bump({ status: 'h2h', game: { gid, seed: 'h:' + this.code + ':' + gid, ids: players.map((x) => x.id) } });
+      const gid = Date.now().toString(36), ids = players.map((x) => x.id);
+      const game = { gid, seed: 'h:' + this.code + ':' + gid, ids, phase: 'race', spin: -1, used: [], got: {}, xi: {} };
+      ids.forEach((id) => { game.xi[id] = new Array(TE.SLOTS).fill(null); });
+      H2H.game = game; H2H.nextSpin(game, Date.now());
+      this.bump({ status: 'h2h', game });
       return;
     }
     const present = this.list().filter((x) => !x.gone).slice(0, MAX_SEASON);
@@ -256,7 +258,7 @@ function OnlineScreen() {
   const saved = Store.data.room && Store.data.room.code;
   const el = go(`
     <div class="topbar"><button class="icon-btn" data-act="home">${ICON.back}</button><h2 class="d grow">Play friends</h2></div>
-    <p class="mute" style="margin:0;font-weight:600;line-height:1.5">Play friends on their own phones, on any network: a Season steal-draft (2–4), or <b>Head-to-Head</b> (2–8), where you call the plays live against each other.</p>
+    <p class="mute" style="margin:0;font-weight:600;line-height:1.5">Play friends on their own phones, on any network: a Season steal-draft (2–4), or <b>Spin Race</b> (2–8): race your friends to tap the best players, then play it out.</p>
     ${saved ? `<button class="cont" id="rejoin" style="margin-top:14px"><div class="mc-ic violet">${ico('users', 20)}</div><div class="grow"><b>Rejoin room ${esc(saved)}</b><small>Pick up where you left off</small></div><span class="dl-go">${ico('play', 14)}</span></button>` : ''}
     <div class="section-title">Your name</div>
     <input class="field" id="nm" maxlength="14" placeholder="Your name" value="${esc(Store.data.name)}">
@@ -300,8 +302,8 @@ function Lobby() {
     <div class="group-title">Players (${here.length}/${MAX_ROOM})</div>
     <div class="group">${mem.map((m, i) => `<div class="lrow" style="cursor:default"><span class="dot" style="background:${MGR_COLORS[i % 4]};width:14px;height:14px"></span><div class="grow"><b>${esc(m.name)}${m.id === Net.myId ? ' (you)' : ''}</b><small>${m.gone ? 'Away' : m.id === Net.hostId ? 'Host' : 'Ready'}</small></div>${m.id === Net.hostId ? '<span class="lmeta hot">Host</span>' : ''}</div>`).join('')}</div>
     <div class="group-title">Game</div>
-    ${Net.isHost ? `<div class="seg two lobby-mode" style="margin-top:0"><button class="${Net.mode === 'season' ? 'on' : ''}" data-mode="season">Season draft</button><button class="${Net.mode === 'h2h' ? 'on' : ''}" data-mode="h2h">Head-to-Head</button></div>` : ''}
-    <div class="mode-blurb">${Net.mode === 'h2h' ? `<b>Head-to-Head</b> · 2–8 players. Everyone drafts at once from the same spins, then you call the plays live against each other. ${here.length > 2 ? `${here.length} players = a tournament bracket${[4, 8].includes(here.length) ? '' : ' (top seeds get byes)'}.` : '2 players = one 1v1 match.'}` : `<b>Season draft</b> · 2–4 players. Steal-draft from the same spins, then watch your seasons play out.${here.length > MAX_SEASON ? ' Only the first 4 play.' : ''}`}</div>
+    ${Net.isHost ? `<div class="seg two lobby-mode" style="margin-top:0"><button class="${Net.mode === 'season' ? 'on' : ''}" data-mode="season">Season draft</button><button class="${Net.mode === 'h2h' ? 'on' : ''}" data-mode="h2h">Spin Race</button></div>` : ''}
+    <div class="mode-blurb">${Net.mode === 'h2h' ? `<b>Spin Race</b> · 2–8 players. Everyone sees the same spin and races to tap the best player: first tap gets him. Then your teams play it out live. ${here.length > 2 ? `${here.length} players = a tournament${[4, 8].includes(here.length) ? '' : ' (top seeds get byes)'}.` : '2 players = one 1v1 game.'}` : `<b>Season draft</b> · 2–4 players. Steal-draft from the same spins, then watch your seasons play out.${here.length > MAX_SEASON ? ' Only the first 4 play.' : ''}`}</div>
     ${Net.mode === 'season' ? (Net.isHost ? `<button class="toggle ${Net.blind ? 'on' : ''}" id="tgBlind" style="margin-top:8px"><div class="grow"><h4>Blind draft</h4><p>Hide all ratings for everyone.</p></div><div class="sw"></div></button>` : `<p class="mute center" style="font-weight:600">${Net.blind ? 'Blind draft: ratings hidden.' : 'Classic draft: ratings shown.'}</p>`) : ''}
     <div class="spacer"></div>
     ${Net.isHost ? `<button class="btn primary big" id="start" ${here.length < 2 ? 'disabled' : ''}>${here.length < 2 ? 'Waiting for friends…' : ico('play', 18) + (Net.mode === 'h2h' ? (here.length > 2 ? ' Start tournament' : ' Start 1v1') : ' Start draft')}</button>` : '<div class="mute center" style="padding:14px;font-weight:700">Waiting for the host to start…</div>'}

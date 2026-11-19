@@ -140,7 +140,7 @@ function Help() {
 function FriendsMenu() {
   modal(`<h2 class="d">Play with friends</h2>
     <div class="steps">
-      <button class="step" data-f="online" style="text-align:left;width:100%"><div class="n violet">${ico('globe', 18)}</div><div><h4>Online room</h4><p>Up to 8 phones, anywhere. Season steal-draft, or Head-to-Head: 1v1 and tournaments where you call the plays live.</p></div></button>
+      <button class="step" data-f="online" style="text-align:left;width:100%"><div class="n violet">${ico('globe', 18)}</div><div><h4>Online room</h4><p>Up to 8 phones, anywhere. Season steal-draft, or Spin Race: race to tap the best players, 1v1 or tournaments.</p></div></button>
       <button class="step" data-f="party" style="text-align:left;width:100%"><div class="n pink">${ico('phone', 18)}</div><div><h4>Party (one phone)</h4><p>Pass and play with up to 4 GMs, and add CPU rivals.</p></div></button>
     </div>`, (bg) => {
     $$('[data-f]', bg).forEach((b) => b.addEventListener('click', () => { bg.remove(); b.dataset.f === 'online' ? OnlineScreen() : PartySetup(); }));

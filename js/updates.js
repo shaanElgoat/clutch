@@ -3,10 +3,10 @@
 // Players see the new ones once, the next time they open the game, and can scroll back through
 // them from the Me tab. Keep it SHORT: a 2-4 word title and 1-3 lines of under 10 words each.
 const UPDATES = [
-  { id: 11, date: '2026-11-18', icon: 'bolt', title: 'Spin Race', items: [
-    'New way to play friends: everyone sees the same spin.',
-    'First tap gets the player. Be quick!',
-    'Then your teams play it out live. 2 to 8 players.',
+  { id: 12, date: '2026-11-20', icon: 'trophy', title: 'Tournaments', items: [
+    'Play with friends: pick a Season or a Tournament.',
+    'Tournament: up to 8 friends draft at the same time.',
+    'Then a bracket of live games. Best draft gets the top seed.',
   ] },
   { id: 9, date: '2026-11-16', icon: 'refresh', title: 'The Great Reset', items: [
     'Everyone starts fresh at midnight.',

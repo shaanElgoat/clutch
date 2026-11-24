@@ -1,0 +1,9 @@
+// Cloudflare hosting for clutchgame.app: the game is plain static files, served straight from this folder.
+{
+  "name": "clutch",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./",
+    "not_found_handling": "single-page-application"
+  }
+}

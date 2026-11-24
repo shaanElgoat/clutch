@@ -1,0 +1,10 @@
+# files that stay in the repo but are not part of the website
+.git
+.claude
+test
+serve.py
+Play CLUTCH.bat
+wrangler.jsonc
+.assetsignore
+README.md
+node_modules

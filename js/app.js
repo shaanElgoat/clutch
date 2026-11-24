@@ -575,7 +575,35 @@ document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-act]');
   if (b && ACTIONS[b.dataset.act]) { Sfx.ensure(); Sfx.tap(); Track.tap(b.dataset.act); ACTIONS[b.dataset.act](b); }
 });
+// MOVING HOUSE: the game's home is becoming clutchgame.app. Saves live per web address, so the old
+// address hands your save to the new one inside the link's #fragment (which never reaches any server),
+// and the new address picks it up. Off until MOVE_TO is set (only once the new site is live).
+const MOVE_TO = '';
+const OLD_HOSTS = ['shaanelgoat.github.io'];
+function moveHouse() {
+  // on the new site: take in a save handed over from the old one
+  if (location.hash.startsWith('#import=')) {
+    const data = b64urlDecode(location.hash.slice(8));
+    history.replaceState(null, '', location.pathname + location.search);
+    if (data && typeof data === 'object' && data.stats) {
+      let here = null; try { here = JSON.parse(localStorage.getItem(Store.key)); } catch (_) {}
+      if (!here || (here.xp || 0) <= (data.xp || 0)) { try { localStorage.setItem(Store.key, JSON.stringify(data)); } catch (_) {} }
+      sessionStorage.setItem('clutch_moved', '1');
+    }
+    return false;
+  }
+  // on the old site: send players (and their save) to the new home
+  if (!MOVE_TO || !OLD_HOSTS.includes(location.hostname)) return false;
+  let save = null; try { save = localStorage.getItem(Store.key); } catch (_) {}
+  const path = location.search || '';
+  if (!save) { location.replace(MOVE_TO + '/' + path); return true; }
+  const app = document.getElementById('app');
+  if (app) app.innerHTML = '<div class="screen"><div class="hh-wait" style="margin-top:30vh"><b>CLUTCH has a new home!</b><small>Taking you to clutchgame.app with all your progress…</small></div></div>';
+  setTimeout(() => location.replace(MOVE_TO + '/' + path + '#import=' + b64urlEncode(JSON.parse(save))), 900);
+  return true;
+}
 function boot() {
+  if (moveHouse()) { if (window.__ldReady) window.__ldReady(); return; }
   Store.load();
   applyTheme();
   document.body.insertAdjacentHTML('afterbegin', DEFS + '<div class="blobs"><i></i><i></i><i></i></div>' + funLayer());
@@ -615,6 +643,7 @@ function start() {
   checkUpdates();
   grNotice();
   inviteOnOpen();
+  try { if (sessionStorage.getItem('clutch_moved')) { sessionStorage.removeItem('clutch_moved'); setTimeout(() => toast('Welcome to clutchgame.app! Your progress came with you.'), 1500); } } catch (_) {}
   adsAgeCheck();
   if (window.__ldReady) window.__ldReady();
   if (Store.data.resetNotice) { Store.data.resetNotice = false; Store.save(); later(resetNotice, 1300); }

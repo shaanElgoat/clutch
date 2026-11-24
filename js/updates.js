@@ -3,6 +3,11 @@
 // Players see the new ones once, the next time they open the game, and can scroll back through
 // them from the Me tab. Keep it SHORT: a 2-4 word title and 1-3 lines of under 10 words each.
 const UPDATES = [
+  { id: 13, date: '2026-11-24', icon: 'globe', title: 'New home: clutchgame.app', items: [
+    'CLUTCH now lives at clutchgame.app.',
+    'Your progress moved with you automatically.',
+    'Add the new address to your home screen.',
+  ] },
   { id: 12, date: '2026-11-20', icon: 'trophy', title: 'Tournaments', items: [
     'Play with friends: pick a Season or a Tournament.',
     'Tournament: up to 8 friends draft at the same time.',

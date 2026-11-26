@@ -4,7 +4,7 @@
 // its progress and any errors. The database rules make all of it write-only, so players can't read it.
 // The owner reads it on the hidden dashboard with the database secret, which is only stored on their phone.
 const TRACK_URL = 'https://clutch-98557-default-rtdb.firebaseio.com/analytics';
-const BUILD = 'v50';
+const BUILD = 'v71';
 // the events worth a line in the live feed (everything is still counted)
 const FEED = { season_end: 1, ring: 1, gdwin: 1, duelw: 1, daily: 1, rivalsw: 1, promo: 1, open_std: 1, open_pro: 1, open_leg: 1, open_icon: 1, code: 1, claim: 1, tour_done: 1, tour_skip: 1, first_open: 1, conn: 1, tradein: 1, great_reset: 1, invite_used: 1, mk_buy: 1, mk_list: 1, signup: 1 };
 const safeKey = (s) => String(s).replace(/[.#$/[\]\s]/g, '_').slice(0, 60) || '_';
@@ -12,6 +12,9 @@ const safeKey = (s) => String(s).replace(/[.#$/[\]\s]/g, '_').slice(0, 60) || '_
 const Track = {
   p: { secs: 0, acts: {}, evs: {}, feed: [], start: false },
   since: null, timer: null,
+  // the current play session: when it started and how many seconds were actually on screen
+  sess: null, hiddenAt: 0,
+  newSess() { Track.sess = { b: Date.now(), t: 0 }; },
   on: () => !!TRACK_URL && !Store.data.noTrack,
   id() {
     if (!Store.data.aid) { Store.data.aid = Array.from(crypto.getRandomValues(new Uint8Array(10)), (b) => (b % 36).toString(36)).join(''); Store.data.aFirst = Date.now(); Store.save(); Track.ev('first_open'); }
@@ -28,15 +31,24 @@ const Track = {
     Track.id();
     Track.p.start = true;
     Track.since = document.visibilityState === 'visible' ? Date.now() : null;
+    Track.newSess();
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') { Track.since = Date.now(); Track.p.start = true; }
-      else { Track.tick(); Track.flush(true); }
+      if (document.visibilityState === 'visible') {
+        Track.since = Date.now(); Track.p.start = true;
+        // away for more than 3 minutes = a new session; a quick app switch carries on the same one
+        if (!Track.sess || Date.now() - Track.hiddenAt > 180000) Track.newSess();
+      } else { Track.tick(); Track.hiddenAt = Date.now(); Track.flush(true); }
     });
     window.addEventListener('pagehide', () => { Track.tick(); Track.flush(true); });
     Track.timer = setInterval(() => { Track.tick(); Track.flush(); }, 30000);
     setTimeout(() => Track.flush(), 4000);
   },
-  tick() { if (Track.since) { const n = Date.now(); Track.p.secs += Math.round((n - Track.since) / 1000); Track.since = document.visibilityState === 'visible' ? n : null; } },
+  tick() {
+    if (!Track.since) return;
+    const n = Date.now(), add = Math.round((n - Track.since) / 1000);
+    Track.p.secs += add; if (Track.sess) Track.sess.t += add;
+    Track.since = document.visibilityState === 'visible' ? n : null;
+  },
   tap(act) { if (Track.on()) { const k = safeKey(act); Track.p.acts[k] = (Track.p.acts[k] || 0) + 1; } },
   ev(name, info) {
     if (!Track.on()) return;
@@ -58,6 +70,8 @@ const Track = {
     const up = {};
     const base = `d/${day}/${aid}`;
     if (P.start) { up[base + '/s'] = inc(1); up[`u/${aid}/s`] = inc(1); up[base + '/hs/' + hr] = inc(1); }
+    // the session log: start, last activity and on-screen seconds (rewritten each flush)
+    if (P.secs && Track.sess && Track.sess.t > 0) up[`${base}/x/${Track.sess.b.toString(36)}`] = { b: Track.sess.b, e: Date.now(), t: Track.sess.t };
     if (P.secs) { up[base + '/t'] = inc(P.secs); up[`u/${aid}/t`] = inc(P.secs); up[base + '/h/' + hr] = inc(P.secs); }
     Object.keys(P.acts).forEach((k) => { up[`${base}/a/${k}`] = inc(P.acts[k]); });
     Object.keys(P.evs).forEach((k) => { up[`${base}/e/${k}`] = inc(P.evs[k]); });
@@ -75,6 +89,9 @@ const Track = {
       [`u/${aid}/ach`]: Object.keys(d.ach || {}).length, [`u/${aid}/rd`]: c.div || 10, [`u/${aid}/rt`]: c.top || 10, [`u/${aid}/ds`]: dailyStreak(),
       [`u/${aid}/tour`]: !!d.toured, [`u/${aid}/st`]: { pl: s.played, po: s.playoffs, ch: s.champs, p17: s.perfectReg, pf: s.perfect, cw: s.clutchW, ct: s.clutchT, gp: s.gdPlayed, gw: s.gdWins, hl: s.hlBest, kb: s.kickBest, dw: s.drillWins, pk: s.packs, mp: s.mpWins, du: s.duelW || 0, cap: s.capBest || 0 },
       [`u/${aid}/best`]: s.best ? String(s.best.rec) : '',
+      // which account this device is signed in to (null = guest)
+      [`u/${aid}/ac`]: (typeof Account !== 'undefined' && Account.user && Account.user.uid) || null,
+      [`u/${aid}/ae`]: (typeof Account !== 'undefined' && Account.user && Account.user.email) || null,
     });
     Track.p = { secs: 0, acts: {}, evs: {}, feed: [], start: false };
     fetch(TRACK_URL + '.json', { method: 'PATCH', body: JSON.stringify(up), keepalive: !!beacon }).catch(() => {});
@@ -148,6 +165,20 @@ async function StatsDash(range) {
   const sorted = users.slice().sort((a, b) => (b.l || 0) - (a.l || 0));
   const name = (u) => (u.n ? esc(u.n) : `<span class="mute">Player ${u.id.slice(0, 4)}</span>`);
   const actDays = (id) => days.filter((k) => D[k] && D[k][id]).length;
+  // devices grouped by the account they're signed in to
+  const daySecs = (ids, k) => ids.reduce((x, id) => x + ((D[k] && D[k][id] && D[k][id].t) || 0), 0);
+  const accts = {};
+  users.forEach((u) => {
+    if (!u.ac) return;
+    const a = accts[u.ac] || (accts[u.ac] = { id: u.ac, email: u.ae || '', names: [], devs: [], t: 0, s: 0, l: 0 });
+    a.devs.push(u); a.t += u.t || 0; a.s += u.s || 0; a.l = Math.max(a.l, u.l || 0);
+    if (u.n && !a.names.includes(u.n)) a.names.push(u.n);
+    if (u.ae) a.email = u.ae;
+  });
+  const acctList = Object.values(accts).map((a) => { const ids = a.devs.map((u) => u.id); return Object.assign(a, { ids, today: daySecs(ids, today), win: win.reduce((x, k) => x + daySecs(ids, k), 0) }); }).sort((x, y) => y.win - x.win || y.l - x.l);
+  const guests = users.filter((u) => !u.ac), guestIds = guests.map((u) => u.id);
+  const guestWin = win.reduce((x, k) => x + daySecs(guestIds, k), 0), guestActive = guests.filter((u) => win.some((k) => D[k] && D[k][u.id])).length;
+  const rangeLbl = range === 1 ? 'today' : range + ' days';
   el.innerHTML = `
     <div class="topbar"><button class="icon-btn" data-act="home">${ico('back', 20)}</button><h2 class="d grow">Analytics</h2><button class="icon-btn" id="rf">${ico('refresh', 18)}</button></div>
     <div class="seg dz-range">${[1, 7, 30].map((r) => `<button class="${r === range ? 'on' : ''}" data-r="${r}">${r === 1 ? 'Today' : r + ' days'}</button>`).join('')}</div>
@@ -158,7 +189,13 @@ async function StatsDash(range) {
       ${tile(dur(playSecs), 'Time played', inWin.size ? dur(playSecs / inWin.size) + ' per player' : '')}
       ${tile(sessions.toLocaleString(), 'Sessions', inWin.size ? (sessions / inWin.size).toFixed(1) + ' per player' : '')}
       ${tile(ret(1), 'Came back next day', `7-day: ${ret(7)}`)}
+      ${tile(acctList.length, 'Accounts', `${acctList.filter((a) => a.win).length} played (${rangeLbl})`)}
+      ${tile(dur(acctList.reduce((x, a) => x + a.win, 0)), 'Account time', `guests: ${dur(guestWin)}`)}
     </div>
+    <div class="dz-card"><h4>By account <small>time on screen · tap one for every session</small></h4>
+      <div class="dz-table"><div class="dz-th dz-acc"><span>Account</span><span>Seen</span><span>Today</span><span>${range === 1 ? '30d' : range + 'd'}</span><span>Total</span></div>
+      ${acctList.map((a) => `<button class="dz-tr dz-acc" data-ac="${esc(a.id)}"><span>${a.names.length ? esc(a.names.join(', ')) : '<span class="mute">No name</span>'}<small>${esc(a.email || a.id.slice(0, 8))} · ${a.devs.length} device${a.devs.length === 1 ? '' : 's'}</small></span><span>${a.l ? ago(a.l) : '–'}</span><span>${a.today ? dur(a.today) : '–'}</span><span>${dur(range === 1 ? days.reduce((x, k) => x + daySecs(a.ids, k), 0) : a.win)}</span><span>${dur(a.t)}</span></button>`).join('') || '<p class="mute">No signed-in players yet. Devices link to their account the next time they open the game.</p>'}</div>
+      <p class="dz-note">Not signed in: ${guests.length} device${guests.length === 1 ? '' : 's'} (${guestActive} played ${rangeLbl}, ${dur(guestWin)}). They're in the Players list below.</p></div>
     <div class="dz-card"><h4>Players per day <small>last 30 days</small></h4>${bars(days.map((k) => ({ v: act(k).length, short: k.slice(8) === '01' || k === today ? k.slice(5) : '', tip: `${k}: ${act(k).length} players · ${newIn([k])} new` })))}</div>
     <div class="dz-card"><h4>New players per day <small>last 30 days</small></h4>${bars(days.map((k) => ({ v: newIn([k]), short: k === today ? 'today' : '', tip: `${k}: ${newIn([k])} new` })), { cls: 'alt' })}</div>
     <div class="dz-card"><h4>When they play <small>minutes by hour, ${range === 1 ? 'today' : range + ' days'}</small></h4>${bars(hours.map((s, h) => ({ v: Math.round(s / 60), short: h % 6 === 0 ? (h === 0 ? '12a' : h === 12 ? '12p' : h > 12 ? h - 12 + 'p' : h + 'a') : '', tip: `${h}:00: ${Math.round(s / 60)} min` })))}</div>
@@ -174,7 +211,7 @@ async function StatsDash(range) {
     <div class="dz-card"><h4>Live feed <small>last 3 days</small></h4><div class="dz-feed">${feed.map((f) => `<div><span class="mute">${ago(f.t)}</span> <b>${f.n ? esc(f.n) : 'Player ' + esc(String(f.u).slice(0, 4))}</b> ${esc(feedLine(f))}</div>`).join('') || '<p class="mute">Nothing yet.</p>'}</div></div>
     <div class="dz-card"><h4>Players <small>tap one for everything</small></h4>
       <div class="dz-table"><div class="dz-th"><span>Player</span><span>Lvl</span><span>Seen</span><span>Days</span><span>Time</span></div>
-      ${sorted.slice(0, 200).map((u) => `<button class="dz-tr" data-u="${esc(u.id)}"><span>${name(u)}<small>${esc(u.p || '')}${u.a ? ' · app' : ''}</small></span><span>${u.lv || 1}</span><span>${u.l ? ago(u.l) : '–'}</span><span>${actDays(u.id)}</span><span>${dur(u.t)}</span></button>`).join('') || '<p class="mute">No players yet.</p>'}</div></div>
+      ${sorted.slice(0, 200).map((u) => `<button class="dz-tr" data-u="${esc(u.id)}"><span>${name(u)}<small>${esc(u.p || '')}${u.a ? ' · app' : ''}${u.ac ? ' · ' + esc(u.ae || 'account') : ' · guest'}</small></span><span>${u.lv || 1}</span><span>${u.l ? ago(u.l) : '–'}</span><span>${actDays(u.id)}</span><span>${dur(u.t)}</span></button>`).join('') || '<p class="mute">No players yet.</p>'}</div></div>
     <div class="dz-card"><h4>Errors <small>last 7 days</small></h4>${errs.map((x) => `<div class="dz-err"><b>${x.n || 1}×</b> ${esc(x.m || '')}<small>${x.day}</small></div>`).join('') || '<p class="mute">No errors. Nice.</p>'}</div>
     <div class="dz-card"><h4>This phone</h4><button class="toggle ${Store.data.noTrack ? '' : 'on'}" id="me"><div class="grow"><h4>Count my own plays</h4><p>Turn off so your testing doesn't mix into the numbers.</p></div><div class="sw"></div></button>
       <button class="btn small" id="lock" style="margin-top:10px">Lock dashboard on this phone</button></div>`;
@@ -183,6 +220,7 @@ async function StatsDash(range) {
   $('#me', el).addEventListener('click', () => { Store.data.noTrack = !Store.data.noTrack; Store.save(); StatsDash(range); });
   $('#lock', el).addEventListener('click', () => { try { localStorage.removeItem('clutch_dash'); } catch (_) {} goTab('me'); });
   $$('[data-u]', el).forEach((b) => b.addEventListener('click', () => dashPlayer(U[b.dataset.u], b.dataset.u, D, days)));
+  $$('[data-ac]', el).forEach((b) => b.addEventListener('click', () => dashAccount(accts[b.dataset.ac], D, days)));
   dashTips(el);
   dashRulesOk().then((ok) => { if (ok === false && el.isConnected) el.querySelector('.dz-range').insertAdjacentHTML('afterend', `<button class="dz-warn" id="fix"><b>No stats are being saved yet</b><span>The database rules aren't published. Tap to fix.</span></button>`); const f = $('#fix', el); if (f) f.addEventListener('click', () => dashLogin()); });
 }
@@ -190,6 +228,34 @@ function feedLine(f) {
   const i = f.i ? ` (${f.i})` : '';
   if (/^open_/.test(f.e)) return `opened a ${({ open_std: 'Standard', open_pro: 'Pro', open_leg: 'Legend', open_icon: 'Icon' })[f.e] || ''} pack${i}`;
   return (({ season_end: 'finished a season', ring: 'won the Super Bowl', gdwin: 'won a Gameday', duelw: 'won a Draft Duel series', daily: 'played the Daily Draft', puzzle: 'finished a daily puzzle', rivalsw: 'won a Rivals game', promo: 'got promoted in Rivals', pack: 'opened a pack', code: 'redeemed a code', claim: 'claimed an objective', tour_done: 'finished the tutorial', tour_skip: 'skipped the tutorial', first_open: 'opened CLUTCH for the first time', conn: 'finished Connections', signup: 'created an account', tradein: 'did a Trade-In', great_reset: 'got Great Reset packs', invite_used: 'joined with a friend code', mk_buy: 'bought on the market', mk_list: 'listed a card' })[f.e] || f.e) + i;
+}
+// every logged session for these devices, newest first
+function dashSessions(ids, D, days) {
+  const out = [];
+  days.forEach((k) => ids.forEach((id) => Object.values((D[k] && D[k][id] && D[k][id].x) || {}).forEach((x) => out.push({ ...x, id }))));
+  return out.sort((a, b) => b.b - a.b);
+}
+function sessRows(list, devName) {
+  if (!list.length) return '<p class="mute">No sessions logged yet. They record from this update on.</p>';
+  const when = (t) => new Date(t).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  return list.slice(0, 60).map((x) => `<div class="dz-kv"><span>${when(x.b)}${devName ? ` <small class="mute">${esc(devName(x.id))}</small>` : ''}</span><b>${dur(x.t)}</b></div>`).join('');
+}
+function dashAccount(a, D, days) {
+  if (!a) return;
+  const row = (k, v) => `<div class="dz-kv"><span>${k}</span><b>${v}</b></div>`;
+  const per = days.map((k) => ({ k, t: a.ids.reduce((x, id) => x + ((D[k] && D[k][id] && D[k][id].t) || 0), 0), s: a.ids.reduce((x, id) => x + ((D[k] && D[k][id] && D[k][id].s) || 0), 0) })).filter((x) => x.t || x.s);
+  const sess = dashSessions(a.ids, D, days).filter((x) => x.t > 0);
+  const devName = (id) => { const u = a.devs.find((d) => d.id === id); return u ? (u.p || '?') + (u.a ? ' app' : '') : ''; };
+  modal(`<div class="sheet-head"><h2 class="d" style="margin:0">${a.names.length ? esc(a.names.join(', ')) : 'Account'}</h2><button class="icon-btn" data-close>${ico('x', 18)}</button></div>
+    <div class="dz-kvs">
+      ${row('Email', esc(a.email || '–'))}${row('Last seen', a.l ? ago(a.l) : '–')}${row('Total time', dur(a.t))}${row('Sessions', a.s)}
+      ${row('Average session', sess.length ? dur(sess.reduce((x, y) => x + y.t, 0) / sess.length) : a.s ? dur(a.t / a.s) : '–')}
+      ${row('Longest session', sess.length ? dur(Math.max(...sess.map((y) => y.t))) : '–')}
+      ${row('Days played (30d)', per.length)}${row('Today', dur(per.filter((x) => x.k === todayKey()).reduce((x, y) => x + y.t, 0)))}
+    </div>
+    <div class="section-title">Devices</div>${a.devs.map((u) => row(esc((u.p || '?') + (u.a ? ' · home-screen app' : ' · browser')), `${dur(u.t)} · ${u.l ? ago(u.l) : '–'}`)).join('')}
+    <div class="section-title">Time per day</div>${per.length ? per.slice().reverse().map((x) => row(x.k, `${dur(x.t)} · ${x.s} session${x.s === 1 ? '' : 's'}`)).join('') : '<p class="mute">No activity in the last 30 days.</p>'}
+    <div class="section-title">Sessions</div>${sessRows(sess, a.devs.length > 1 ? devName : null)}`, null, 'sheet');
 }
 function dashPlayer(u, id, D, days) {
   if (!u) return;
@@ -206,7 +272,9 @@ function dashPlayer(u, id, D, days) {
       ${row('Clutch Calls', `${s.cw || 0}/${s.ct || 0}`)}${row('Gameday', `${s.gw || 0}-${(s.gp || 0) - (s.gw || 0)}`)}${row('Rivals now / best', `Div ${u.rd || 10} / Div ${u.rt || 10}`)}
       ${row('Draft Duels won', s.du || 0)}${row('Salary Cap best', `${s.cap || 0} wins`)}${row("Who's Better? best", s.hl || 0)}${row('Kick It best', s.kb || 0)}${row('Drills won', s.dw || 0)}
       ${row('Packs opened', s.pk || 0)}${row('Daily streak', u.ds || 0)}${row('Did the tutorial', u.tour ? 'Yes' : 'No')}
+      ${row('Account', u.ac ? esc(u.ae || u.ac) : 'Guest (not signed in)')}
     </div>
+    <div class="section-title">Sessions</div>${sessRows(dashSessions([id], D, days).filter((x) => x.t > 0))}
     <div class="section-title">Days played</div>${per.length ? per.slice().reverse().map(({ k, x }) => row(k, `${dur(x.t)} · ${x.s || 0} session${x.s === 1 ? '' : 's'}`)).join('') : '<p class="mute">No activity in the last 30 days.</p>'}
     <div class="section-title">Most used</div>${hbars(Object.entries(acts).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([k, v]) => ({ label: ACT_NAME[k] || k, v })))}`, null, 'sheet');
 }

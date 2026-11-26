@@ -1425,3 +1425,4 @@ html, body { overflow-x: clip; }
 .rc-card.nofit { opacity: .3; filter: grayscale(.8); } .rc-card.nofit .rc-tag { opacity: 1; }
 .rc-card.pending { outline: 3px solid #ffb020; outline-offset: 2px; animation: hhPulse .6s ease-in-out infinite; } .rc-card.pending .rc-tag { opacity: 1; background: #ff8a1a; }
 .rc-card:disabled { cursor: default; }
+.dz-th.dz-acc, .dz-tr.dz-acc { grid-template-columns: 1fr 54px 46px 46px 46px; }

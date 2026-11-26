@@ -8,7 +8,7 @@
 // For testing on one phone without a real ad account, put  clutch_adtest=1  in localStorage:
 // that shows a fake 5-second "ad" instead of a real one.
 const ADS_PROVIDER = '';
-const ADS_CLIENT = '';
+const ADS_CLIENT = 'ca-pub-9444873763818491';
 const AD_RULES = {
   freeGames: 3,          // new players see no between-game ads for their first few games
   gapMs: 5 * 60 * 1000,  // at most one between-game ad every 5 minutes
@@ -29,6 +29,7 @@ const Ads = {
       window.adBreak = window.adConfig = function (o) { window.adsbygoogle.push(o); };
       // under-13 players only ever get non-personalised ads
       if (Ads.kid()) window.adsbygoogle.requestNonPersonalizedAds = 1;
+      if (document.querySelector('script[src*="adsbygoogle.js"]')) { window.adConfig({ preloadAdBreaks: 'on', sound: Store.data.sound ? 'on' : 'off' }); return; }
       const s = document.createElement('script');
       s.async = true; s.crossOrigin = 'anonymous';
       s.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' + encodeURIComponent(ADS_CLIENT);

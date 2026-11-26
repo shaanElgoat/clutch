@@ -1426,3 +1426,21 @@ html, body { overflow-x: clip; }
 .rc-card.pending { outline: 3px solid #ffb020; outline-offset: 2px; animation: hhPulse .6s ease-in-out infinite; } .rc-card.pending .rc-tag { opacity: 1; background: #ff8a1a; }
 .rc-card:disabled { cursor: default; }
 .dz-th.dz-acc, .dz-tr.dz-acc { grid-template-columns: 1fr 54px 46px 46px 46px; }
+
+/* Who played page */
+.pl-go { background: #eef3ff !important; border-color: #c9d7ff !important; }
+.pl-go b { color: #2a49d8 !important; }
+.pl-row { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; width: 100%; text-align: left; padding: 10px 6px; border-radius: 12px; }
+.pl-row:nth-child(odd) { background: #f6f8fc; }
+.pl-rank { font-weight: 800; color: var(--mute); font-size: 13px; text-align: center; }
+.pl-who { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pl-who b { font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl-who small, .pl-time small { font-size: 11px; color: var(--mute); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl-bar { display: block; height: 6px; border-radius: 6px; background: #e8ecf5; margin-top: 4px; overflow: hidden; }
+.pl-bar i { display: block; height: 100%; border-radius: 6px; background: linear-gradient(90deg, #3466ff, #5b8cff); }
+.pl-time { text-align: right; display: flex; flex-direction: column; }
+.pl-time b { font-size: 16px; font-weight: 800; }
+.pl-live { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #20c06a; box-shadow: 0 0 0 3px rgba(32,192,106,.2); vertical-align: middle; margin-left: 4px; }
+.pl-range { grid-template-columns: repeat(4, 1fr); }
+.pl-row { grid-template-columns: 22px minmax(0, 1fr) 84px; }
+.pl-time { min-width: 0; }

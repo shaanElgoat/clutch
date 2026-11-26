@@ -181,6 +181,7 @@ async function StatsDash(range) {
   const rangeLbl = range === 1 ? 'today' : range + ' days';
   el.innerHTML = `
     <div class="topbar"><button class="icon-btn" data-act="home">${ico('back', 20)}</button><h2 class="d grow">Analytics</h2><button class="icon-btn" id="rf">${ico('refresh', 18)}</button></div>
+    <button class="dz-warn pl-go" id="who"><b>Who played &amp; for how long</b><span>Everyone ranked by time, with every session →</span></button>
     <div class="seg dz-range">${[1, 7, 30].map((r) => `<button class="${r === range ? 'on' : ''}" data-r="${r}">${r === 1 ? 'Today' : r + ' days'}</button>`).join('')}</div>
     <div class="dz-tiles">
       ${tile(users.length.toLocaleString(), 'Total players', `${newIn([today])} new today`)}
@@ -216,6 +217,7 @@ async function StatsDash(range) {
     <div class="dz-card"><h4>This phone</h4><button class="toggle ${Store.data.noTrack ? '' : 'on'}" id="me"><div class="grow"><h4>Count my own plays</h4><p>Turn off so your testing doesn't mix into the numbers.</p></div><div class="sw"></div></button>
       <button class="btn small" id="lock" style="margin-top:10px">Lock dashboard on this phone</button></div>`;
   $('#rf', el).addEventListener('click', () => StatsDash(range));
+  $('#who', el).addEventListener('click', () => PlayersDash());
   $$('[data-r]', el).forEach((b) => b.addEventListener('click', () => StatsDash(+b.dataset.r)));
   $('#me', el).addEventListener('click', () => { Store.data.noTrack = !Store.data.noTrack; Store.save(); StatsDash(range); });
   $('#lock', el).addEventListener('click', () => { try { localStorage.removeItem('clutch_dash'); } catch (_) {} goTab('me'); });
@@ -223,6 +225,77 @@ async function StatsDash(range) {
   $$('[data-ac]', el).forEach((b) => b.addEventListener('click', () => dashAccount(accts[b.dataset.ac], D, days)));
   dashTips(el);
   dashRulesOk().then((ok) => { if (ok === false && el.isConnected) el.querySelector('.dz-range').insertAdjacentHTML('afterend', `<button class="dz-warn" id="fix"><b>No stats are being saved yet</b><span>The database rules aren't published. Tap to fix.</span></button>`); const f = $('#fix', el); if (f) f.addEventListener('click', () => dashLogin()); });
+}
+// ======================= WHO PLAYED: everyone, ranked by time played =======================
+// A person = a signed-in account (all its devices together) or a guest device.
+async function PlayersDash(range, q) {
+  App.g = null;
+  range = range || 'today'; q = q || '';
+  const sec = DASH.secret();
+  if (!sec) return dashLogin();
+  const el = go(`<div class="topbar"><button class="icon-btn" id="bk">${ico('back', 20)}</button><h2 class="d grow">Who played</h2></div><p class="mute center" style="font-weight:700;margin-top:40px">Loading…</p>`);
+  $('#bk', el).addEventListener('click', () => StatsDash());
+  const today = todayKey();
+  const get = (path, qs) => fetch(`${TRACK_URL}/${path}.json?auth=${encodeURIComponent(sec)}${qs || ''}`).then((r) => { if (r.status === 401 || r.status === 403) throw new Error('auth'); return r.json(); });
+  let U, D;
+  try { [U, D] = await Promise.all([get('u'), get('d', `&orderBy="$key"&startAt="${dayAdd(today, -29)}"`)]); }
+  catch (err) {
+    if (err.message === 'auth') { try { localStorage.removeItem('clutch_dash'); } catch (_) {} return dashLogin(); }
+    el.querySelector('p').textContent = "Couldn't load. Check your internet."; return;
+  }
+  if (!el.isConnected) return;
+  U = U || {}; D = D || {};
+  const days = []; for (let i = 29; i >= 0; i--) days.push(dayAdd(today, -i));
+  const RANGES = { today: { lbl: 'Today', ks: [today] }, yday: { lbl: 'Yesterday', ks: [dayAdd(today, -1)] }, d7: { lbl: '7 days', ks: days.slice(-7) }, d30: { lbl: '30 days', ks: days } };
+  const ks = RANGES[range].ks, now = Date.now();
+  // build people
+  const people = {};
+  Object.entries(U).forEach(([id, u]) => {
+    const key = u.ac ? 'a:' + u.ac : 'g:' + id;
+    const P = people[key] || (people[key] = { key, acct: !!u.ac, ac: u.ac, email: u.ae || '', names: [], devs: [], ids: [], tAll: 0, sAll: 0, l: 0 });
+    P.devs.push({ id, ...u }); P.ids.push(id); P.tAll += u.t || 0; P.sAll += u.s || 0; P.l = Math.max(P.l, u.l || 0);
+    if (u.n && !P.names.includes(u.n)) P.names.push(u.n);
+    if (u.ae) P.email = u.ae;
+  });
+  const list = Object.values(people).map((P) => {
+    let t = 0, sN = 0; const perDay = ks.map((k) => { const v = P.ids.reduce((x, id) => x + ((D[k] && D[k][id] && D[k][id].t) || 0), 0); t += v; P.ids.forEach((id) => { sN += (D[k] && D[k][id] && D[k][id].s) || 0; }); return v; });
+    return Object.assign(P, { t, sN, perDay, live: now - P.l < 5 * 60e3 });
+  }).filter((P) => P.t > 0 || P.sN > 0)
+    .filter((P) => !q || (P.names.join(' ') + ' ' + P.email).toLowerCase().includes(q.toLowerCase()))
+    .sort((a, b) => b.t - a.t || b.l - a.l);
+  const total = list.reduce((x, P) => x + P.t, 0), max = Math.max(1, ...list.map((P) => P.t));
+  const accN = list.filter((P) => P.acct).length;
+  const label = (P) => P.names.length ? esc(P.names.join(', ')) : `<span class="mute">${P.acct ? 'No name' : 'Player ' + esc(P.ids[0].slice(0, 4))}</span>`;
+  const sub = (P) => P.acct ? esc(P.email || 'account') + (P.devs.length > 1 ? ` · ${P.devs.length} devices` : '') : 'Guest · ' + esc(P.devs[0].p || '?') + (P.devs[0].a ? ' app' : '');
+  el.innerHTML = `
+    <div class="topbar"><button class="icon-btn" id="bk">${ico('back', 20)}</button><h2 class="d grow">Who played</h2><button class="icon-btn" id="rf">${ico('refresh', 18)}</button></div>
+    <div class="seg dz-range pl-range">${Object.entries(RANGES).map(([k, r]) => `<button class="${String(k) === String(range) ? 'on' : ''}" data-r="${k}">${r.lbl}</button>`).join('')}</div>
+    <div class="dz-tiles">
+      ${tile(list.length, 'People played', `${accN} signed in · ${list.length - accN} guests`)}
+      ${tile(dur(total), 'Total time', list.length ? dur(total / list.length) + ' each on average' : '')}
+      ${tile(list.filter((P) => P.live).length, 'Playing now', 'last 5 min')}
+    </div>
+    <input class="field" id="q" placeholder="Search name or email" value="${esc(q)}" style="width:100%;margin:4px 0 10px">
+    <div class="dz-card"><h4>${RANGES[range].lbl} <small>most time first · tap anyone for every session</small></h4>
+      ${list.map((P, i) => `<button class="pl-row" data-k="${esc(P.key)}">
+        <span class="pl-rank">${i + 1}</span>
+        <span class="pl-who"><b>${label(P)}${P.live ? ' <i class="pl-live"></i>' : ''}</b><small>${sub(P)}</small>
+          <span class="pl-bar"><i style="width:${Math.max(2, (P.t / max) * 100)}%"></i></span></span>
+        <span class="pl-time"><b>${dur(P.t)}</b><small>${P.sN} session${P.sN === 1 ? '' : 's'}</small><small>${P.l ? ago(P.l) : '–'}</small></span></button>`).join('') || `<p class="mute">${q ? 'Nobody matches that search.' : 'Nobody played in this range yet.'}</p>`}
+    </div>`;
+  $('#bk', el).addEventListener('click', () => StatsDash());
+  $('#rf', el).addEventListener('click', () => PlayersDash(range, $('#q', el).value));
+  $$('[data-r]', el).forEach((b) => b.addEventListener('click', () => PlayersDash(b.dataset.r, $('#q', el).value)));
+  // search filters the rows as you type
+  $('#q', el).addEventListener('input', (e) => {
+    const v = e.target.value.toLowerCase();
+    $$('.pl-row', el).forEach((r) => { const P = people[r.dataset.k]; r.style.display = !v || (P.names.join(' ') + ' ' + P.email).toLowerCase().includes(v) ? '' : 'none'; });
+  });
+  $$('.pl-row', el).forEach((b) => b.addEventListener('click', () => {
+    const P = people[b.dataset.k];
+    if (P.acct) dashAccount({ id: P.ac, email: P.email, names: P.names, devs: P.devs, ids: P.ids, t: P.tAll, s: P.sAll, l: P.l }, D, days);
+    else dashPlayer(U[P.ids[0]], P.ids[0], D, days);
+  }));
 }
 function feedLine(f) {
   const i = f.i ? ` (${f.i})` : '';

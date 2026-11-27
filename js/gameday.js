@@ -125,6 +125,13 @@
       ev.result = ev.kind === 'int' ? 'INTERCEPTED' : 'FUMBLE';
       ev.turnover = true;
     } else {
+      // a gain can't go past the goal line: a touchdown from the 12 is a 12-yard play, in the text and the stats
+      const toGoal = 100 - g.ball;
+      if (ev.yards > toGoal) {
+        const over = ev.yards - toGoal;
+        ev.yards = toGoal;
+        if (ev.play === 'run') g.stats[side].rush -= over; else if (ev.kind === 'gain') g.stats[side].pass -= over;
+      }
       g.ball += ev.yards;
       if (g.ball >= 100) {
         g.score[side] += 7; ev.result = 'TOUCHDOWN'; ev.td = true;
